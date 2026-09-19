@@ -118,6 +118,7 @@
         <div><label class="f" for="p_harga" id="p_harga_lbl">Harga per pcs (Rp)</label><input type="number" inputmode="numeric" id="p_harga" min="0"></div>
         <div><label class="f" for="p_op">Biaya operator mesin (Rp)</label><input type="number" inputmode="numeric" id="p_op" min="0" value="0"></div>
         <div><label class="f" for="p_bayar">Sudah dibayar (Rp)</label><input type="number" inputmode="numeric" id="p_bayar" min="0" value="0"></div>
+        <div class="full"><label class="f" for="p_cat">Catatan (opsional)</label><input id="p_cat" placeholder="mis. diambil hari Jumat"></div>
       </div>
       <p class="hint">Biaya operator terisi otomatis Rp 50 per pcs dan boleh diubah. Kekurangan bayar bisa dicatat nanti lewat tombol <b>Catat pembayaran</b> di Daftar pesanan.</p>
       <div class="preview" id="p_prev"></div>
@@ -188,7 +189,7 @@
 <div id="msg"></div>
 
 <script>
-const VERSI = '1.2';
+const VERSI = '1.3';
 const TARIF_OPERATOR = 50;            // Rp per pcs. Ubah angka ini kalau tarif operator berubah.
 const PAKET = 'Sablon + Gelas', JASA = 'Jasa Sablon';
 const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -369,8 +370,8 @@ function simpanPesanan() {
   antre({ op: 'add', sheet: 'Pesanan', row: {
     ID: uid(), Tanggal: tgl, NoInvoice: inv, Pelanggan: nama, Warna: $('p_warna').value.trim(), Jenis: $('p_jenis').value,
     Deskripsi: $('p_desk').value.trim(), Jumlah: jml, HargaSatuan: harga, Total: total,
-    BiayaOperator: Number($('p_op').value) || 0, Dibayar: bayar, Catatan: '' } });
-  ['p_nama', 'p_warna', 'p_desk', 'p_jml', 'p_harga'].forEach((i) => { $(i).value = ''; });
+    BiayaOperator: Number($('p_op').value) || 0, Dibayar: bayar, Catatan: $('p_cat').value.trim() } });
+  ['p_nama', 'p_warna', 'p_desk', 'p_jml', 'p_harga', 'p_cat'].forEach((i) => { $(i).value = ''; });
   opManual = false; $('p_op').value = 0; $('p_bayar').value = 0;
   hitung(); segarkanInvoice();
   pesan('Pesanan ' + inv + ' tersimpan di HP', 3000);
