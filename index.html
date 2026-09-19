@@ -49,6 +49,13 @@
   .tag.lunas { background:#dcf3e5; color:var(--ok); }
   .tag.utang { background:#fde3ec; color:var(--magenta); }
   .tag.tunggu { background:#fff0d6; color:var(--warn); }
+  .tag.jasa { background:#d8eef3; color:var(--cyan); }
+  .tag.paket { background:#ece7f7; color:#5b3fa0; }
+  input[readonly] { background:var(--paper); color:var(--muted); }
+  dialog { border:0; border-radius:12px; padding:18px; width:calc(100% - 32px); max-width:420px; color:var(--ink); }
+  dialog::backdrop { background:rgba(20,33,61,.55); }
+  .ghost { width:100%; margin-top:8px; background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:11px; font-size:15px; font-weight:600; cursor:pointer; }
+  .err { color:var(--magenta); font-size:13px; margin-top:8px; min-height:1.2em; }
   .acts { margin-top:7px; display:flex; gap:8px; }
   .acts button { background:#fff; border:1px solid var(--line); border-radius:6px; padding:5px 10px; font-size:13px; cursor:pointer; color:var(--ink); }
   .acts button.del { color:var(--magenta); }
@@ -100,15 +107,19 @@
     <div class="card">
       <h2>Catat pesanan baru</h2>
       <div class="grid">
-        <div><label class="f" for="p_tgl">Tanggal</label><input type="date" id="p_tgl"></div>
+        <div><label class="f" for="p_tgl">Tanggal order</label><input type="date" id="p_tgl"></div>
+        <div><label class="f" for="p_inv">No invoice (otomatis)</label><input id="p_inv" readonly></div>
         <div><label class="f" for="p_nama">Nama pelanggan</label><input id="p_nama" placeholder="mis. Bu Rina"></div>
-        <div class="full"><label class="f" for="p_desk">Deskripsi pesanan</label><input id="p_desk" placeholder="mis. Gelas 16oz, logo 1 warna"></div>
+        <div><label class="f" for="p_warna">Warna</label><input id="p_warna" placeholder="mis. Hitam / Merah-Biru"></div>
+        <div class="full"><label class="f" for="p_jenis">Jenis pesanan</label>
+          <select id="p_jenis"><option value="Sablon + Gelas">Sablon + gelas (gelas dari kita)</option><option value="Jasa Sablon">Jasa sablon saja (pelanggan bawa gelas sendiri)</option></select></div>
+        <div class="full"><label class="f" for="p_desk">Nama barang (deskripsi pesanan)</label><input id="p_desk" placeholder="mis. Gelas plastik 16oz"></div>
         <div><label class="f" for="p_jml">Jumlah (pcs)</label><input type="number" inputmode="numeric" id="p_jml" min="1"></div>
-        <div><label class="f" for="p_harga">Harga per pcs (Rp)</label><input type="number" inputmode="numeric" id="p_harga" min="0"></div>
+        <div><label class="f" for="p_harga" id="p_harga_lbl">Harga per pcs (Rp)</label><input type="number" inputmode="numeric" id="p_harga" min="0"></div>
         <div><label class="f" for="p_op">Biaya operator mesin (Rp)</label><input type="number" inputmode="numeric" id="p_op" min="0" value="0"></div>
         <div><label class="f" for="p_bayar">Sudah dibayar (Rp)</label><input type="number" inputmode="numeric" id="p_bayar" min="0" value="0"></div>
-        <div class="full"><label class="f" for="p_cat">Catatan (opsional)</label><input id="p_cat"></div>
       </div>
+      <p class="hint">Biaya operator terisi otomatis Rp 50 per pcs dan boleh diubah. Kekurangan bayar bisa dicatat nanti lewat tombol <b>Catat pembayaran</b> di Daftar pesanan.</p>
       <div class="preview" id="p_prev"></div>
       <button class="primary" id="p_btn">Simpan pesanan</button>
     </div>
@@ -138,6 +149,7 @@
   <!-- LAPORAN -->
   <section id="laporan">
     <div class="card"><h2 id="l_judul">Laporan</h2><div id="l_isi"></div></div>
+    <div class="card"><h2>Omzet per jenis pesanan</h2><div id="l_jenis"></div></div>
     <div class="card"><h2>Belanja per kategori</h2><div id="l_kat"></div></div>
   </section>
 
@@ -162,10 +174,26 @@
 <footer>Qasir Sablon Gelas · versi <span id="ver"></span></footer>
 </div>
 </div>
+<dialog id="dlg">
+  <h2>Catat pembayaran</h2>
+  <div class="sub" id="dlg_info"></div>
+  <div style="height:12px"></div>
+  <label class="f" for="dlg_jml">Jumlah pembayaran baru (Rp)</label>
+  <input type="number" inputmode="numeric" id="dlg_jml" min="1">
+  <div class="err" id="dlg_err"></div>
+  <button class="primary" id="dlg_ok" style="margin-top:6px">Simpan pembayaran</button>
+  <button class="ghost" id="dlg_lunas">Isi sisa tagihan (lunas)</button>
+  <button class="ghost" id="dlg_batal">Batal</button>
+</dialog>
 <div id="msg"></div>
 
 <script>
-const VERSI = '1.1';
+const VERSI = '1.2';
+const TARIF_OPERATOR = 50;            // Rp per pcs. Ubah angka ini kalau tarif operator berubah.
+const PAKET = 'Sablon + Gelas', JASA = 'Jasa Sablon';
+const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+const tglIndo = (t) => { const m = String(t).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${+m[3]} ${BLN[+m[2] - 1]} ${m[1]}` : t; };
+let opManual = false, bayarId = null;
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1';
 const $ = (id) => document.getElementById(id);
 const rp = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
@@ -199,25 +227,28 @@ function tampilan() {
   S.queue.forEach((op) => {
     if (op.op === 'add') { if (!v[op.sheet].some((r) => r.ID === op.row.ID)) v[op.sheet].push({ ...op.row, _tunda: true }); }
     else if (op.op === 'lunasi') { const r = v.Pesanan.find((x) => x.ID === op.id); if (r) { r.Dibayar = r.Total; r._tunda = true; } }
+    else if (op.op === 'bayar') { const r = v.Pesanan.find((x) => x.ID === op.id); if (r) { r.Dibayar = op.dibayar; r._tunda = true; } }
     else if (op.op === 'hapus') { v[op.sheet] = v[op.sheet].filter((r) => r.ID !== op.id); }
   });
   return v;
 }
 function saring(arr) {
   const b = $('bulan').value;
-  return arr.filter((r) => !b || String(r.Tanggal).indexOf(b) === 0).sort((a, c) => String(c.Tanggal).localeCompare(String(a.Tanggal)));
+  return arr.filter((r) => !b || String(r.Tanggal).indexOf(b) === 0).sort((a, c) => String(c.Tanggal).localeCompare(String(a.Tanggal)) || String(c.NoInvoice || '').localeCompare(String(a.NoInvoice || '')));
 }
 
 function render() {
   const v = tampilan(), ps = saring(v.Pesanan), bl = saring(v.Belanja);
 
   $('p_list').innerHTML = ps.length ? ps.map((r) => {
-    const sisa = r.Total - r.Dibayar, lunas = sisa <= 0;
+    const sisa = r.Total - r.Dibayar, lunas = sisa <= 0, jasa = r.Jenis === JASA;
     return `<div class="item"><div class="row"><span class="name">${esc(r.Pelanggan)}</span><span class="amt">${rp(r.Total)}</span></div>
-      <div class="sub">${esc(r.Tanggal)} · ${esc(r.Deskripsi)} · ${r.Jumlah} pcs × ${rp(r.HargaSatuan)}</div>
-      <div class="sub">Operator: ${rp(r.BiayaOperator)} &nbsp; ${lunas ? '<span class="tag lunas">Lunas</span>' : '<span class="tag utang">Kurang ' + rp(sisa) + '</span>'} ${r._tunda ? '<span class="tag tunggu">Menunggu kirim</span>' : ''}</div>
+      <div class="sub">${r.NoInvoice ? '<b>' + esc(r.NoInvoice) + '</b> · ' : ''}${esc(tglIndo(r.Tanggal))}</div>
+      <div class="sub">${esc(r.Deskripsi)}${r.Warna ? ' · warna ' + esc(r.Warna) : ''} · ${r.Jumlah} pcs × ${rp(r.HargaSatuan)}</div>
+      <div class="sub"><span class="tag ${jasa ? 'jasa' : 'paket'}">${jasa ? 'Jasa sablon saja' : 'Sablon + gelas'}</span> Operator: ${rp(r.BiayaOperator)}</div>
+      <div class="sub">Sudah dibayar: ${rp(r.Dibayar)} &nbsp; ${lunas ? '<span class="tag lunas">Lunas</span>' : '<span class="tag utang">Kurang ' + rp(sisa) + '</span>'} ${r._tunda ? '<span class="tag tunggu">Menunggu kirim</span>' : ''}</div>
       ${r.Catatan ? `<div class="sub">${esc(r.Catatan)}</div>` : ''}
-      <div class="acts">${lunas ? '' : `<button data-a="lunasi" data-id="${r.ID}">Tandai lunas</button>`}<button class="del" data-a="hapus" data-s="Pesanan" data-id="${r.ID}">Hapus</button></div></div>`;
+      <div class="acts">${lunas ? '' : `<button data-a="bayar" data-id="${r.ID}">Catat pembayaran</button>`}<button class="del" data-a="hapus" data-s="Pesanan" data-id="${r.ID}">Hapus</button></div></div>`;
   }).join('') : '<div class="empty">Belum ada pesanan pada periode ini.</div>';
 
   $('b_list').innerHTML = bl.length ? bl.map((r) =>
@@ -248,6 +279,12 @@ function render() {
   const ks = Object.keys(per);
   $('l_kat').innerHTML = ks.length ? ks.map((k) => baris(esc(k), rp(per[k]))).join('') : '<div class="empty">Belum ada belanja.</div>';
 
+  const pj = {};
+  ps.forEach((r) => { const k = r.Jenis === JASA ? 'Jasa sablon saja' : 'Sablon + gelas'; const o = pj[k] || (pj[k] = { n: 0, pcs: 0, omzet: 0 }); o.n++; o.pcs += r.Jumlah; o.omzet += r.Total; });
+  const kj = Object.keys(pj);
+  $('l_jenis').innerHTML = kj.length ? kj.map((k) => baris(esc(k) + `<br><span class="sub">${pj[k].n} pesanan / ${pj[k].pcs} pcs</span>`, rp(pj[k].omzet))).join('') : '<div class="empty">Belum ada pesanan.</div>';
+
+  segarkanInvoice();
   statusBar();
 }
 
@@ -303,8 +340,21 @@ async function sinkron() {
 function antre(op) { op.opId = uid(); S.queue.push(op); simpanLokal(); render(); sinkron(); }
 
 // ---------- Aksi pengguna ----------
+function noInvoiceBerikut(tgl) {
+  const p = 'INV-' + String(tgl).slice(2).replace(/-/g, '') + '-';
+  let mx = 0;
+  tampilan().Pesanan.forEach((r) => {
+    const v = String(r.NoInvoice || '');
+    if (v.indexOf(p) === 0) { const n = parseInt(v.slice(p.length), 10); if (n > mx) mx = n; }
+  });
+  return p + String(mx + 1).padStart(3, '0');
+}
+function segarkanInvoice() { const t = $('p_tgl').value; $('p_inv').value = t ? noInvoiceBerikut(t) : ''; }
+
 function hitung() {
-  const t = (Number($('p_jml').value) || 0) * (Number($('p_harga').value) || 0);
+  const jml = Number($('p_jml').value) || 0;
+  if (!opManual) $('p_op').value = jml * TARIF_OPERATOR;
+  const t = jml * (Number($('p_harga').value) || 0);
   const op = Number($('p_op').value) || 0, by = Number($('p_bayar').value) || 0;
   $('p_prev').innerHTML = `Total pesanan: <b>${rp(t)}</b> · Sisa: <b>${rp(Math.max(t - by, 0))}</b> · Untung kotor setelah operator: <b>${rp(t - op)}</b>`;
 }
@@ -313,12 +363,34 @@ function simpanPesanan() {
   const jml = Number($('p_jml').value) || 0, harga = Number($('p_harga').value) || 0;
   const tgl = $('p_tgl').value, nama = $('p_nama').value.trim();
   if (!tgl || !nama || jml <= 0) { pesan('Isi tanggal, nama pelanggan, dan jumlah.', 3500); return; }
+  const total = jml * harga, bayar = Number($('p_bayar').value) || 0;
+  if (bayar > total) { pesan('Jumlah dibayar melebihi total pesanan.', 4000); return; }
+  const inv = noInvoiceBerikut(tgl);
   antre({ op: 'add', sheet: 'Pesanan', row: {
-    ID: uid(), Tanggal: tgl, Pelanggan: nama, Deskripsi: $('p_desk').value.trim(), Jumlah: jml, HargaSatuan: harga, Total: jml * harga,
-    BiayaOperator: Number($('p_op').value) || 0, Dibayar: Number($('p_bayar').value) || 0, Catatan: $('p_cat').value.trim() } });
-  ['p_nama', 'p_desk', 'p_jml', 'p_harga', 'p_cat'].forEach((i) => { $(i).value = ''; });
-  $('p_op').value = 0; $('p_bayar').value = 0; hitung();
-  pesan('Pesanan tersimpan di HP', 2500);
+    ID: uid(), Tanggal: tgl, NoInvoice: inv, Pelanggan: nama, Warna: $('p_warna').value.trim(), Jenis: $('p_jenis').value,
+    Deskripsi: $('p_desk').value.trim(), Jumlah: jml, HargaSatuan: harga, Total: total,
+    BiayaOperator: Number($('p_op').value) || 0, Dibayar: bayar, Catatan: '' } });
+  ['p_nama', 'p_warna', 'p_desk', 'p_jml', 'p_harga'].forEach((i) => { $(i).value = ''; });
+  opManual = false; $('p_op').value = 0; $('p_bayar').value = 0;
+  hitung(); segarkanInvoice();
+  pesan('Pesanan ' + inv + ' tersimpan di HP', 3000);
+}
+
+function bukaBayar(id) {
+  const r = tampilan().Pesanan.find((x) => x.ID === id); if (!r) return;
+  bayarId = id;
+  const sisa = r.Total - r.Dibayar;
+  $('dlg_info').innerHTML = `<b>${esc(r.NoInvoice || '')}</b> ${esc(r.Pelanggan)}<br>Total ${rp(r.Total)} · Sudah dibayar ${rp(r.Dibayar)} · <b>Sisa ${rp(sisa)}</b>`;
+  $('dlg_jml').value = ''; $('dlg_err').textContent = '';
+  $('dlg').showModal();
+}
+function simpanBayar() {
+  const r = tampilan().Pesanan.find((x) => x.ID === bayarId); if (!r) { $('dlg').close(); return; }
+  const tambah = Number($('dlg_jml').value) || 0, sisa = r.Total - r.Dibayar;
+  if (tambah <= 0) { $('dlg_err').textContent = 'Isi jumlah pembayaran.'; return; }
+  if (tambah > sisa) { $('dlg_err').textContent = 'Melebihi sisa tagihan (' + rp(sisa) + ').'; return; }
+  antre({ op: 'bayar', id: bayarId, dibayar: r.Dibayar + tambah });
+  $('dlg').close(); pesan('Pembayaran ' + rp(tambah) + ' dicatat', 3000);
 }
 
 function simpanBelanja() {
@@ -355,10 +427,24 @@ $('b_btn').onclick = simpanBelanja;
 $('c_btn').onclick = simpanSetelan;
 $('btnSemua').onclick = () => { $('bulan').value = ''; render(); };
 $('bulan').addEventListener('change', render);
-['p_jml', 'p_harga', 'p_op', 'p_bayar'].forEach((id) => $(id).addEventListener('input', hitung));
+['p_jml', 'p_harga', 'p_bayar'].forEach((id) => $(id).addEventListener('input', hitung));
+$('p_op').addEventListener('input', () => { opManual = true; hitung(); });
+$('p_op').addEventListener('blur', () => { if ($('p_op').value === '') { opManual = false; hitung(); } });
+$('p_tgl').addEventListener('change', segarkanInvoice);
+$('p_jenis').addEventListener('change', () => {
+  const jasa = $('p_jenis').value === JASA;
+  $('p_harga_lbl').textContent = jasa ? 'Harga jasa sablon per pcs (Rp)' : 'Harga per pcs (Rp)';
+  $('p_desk').placeholder = jasa ? 'mis. Gelas 16oz milik pelanggan' : 'mis. Gelas plastik 16oz';
+});
+$('dlg_ok').onclick = simpanBayar;
+$('dlg_batal').onclick = () => $('dlg').close();
+$('dlg_lunas').onclick = () => {
+  const r = tampilan().Pesanan.find((x) => x.ID === bayarId);
+  if (r) { $('dlg_jml').value = r.Total - r.Dibayar; $('dlg_err').textContent = ''; }
+};
 document.body.addEventListener('click', (e) => {
   const b = e.target.closest('button[data-a]'); if (!b) return;
-  if (b.dataset.a === 'lunasi') { antre({ op: 'lunasi', id: b.dataset.id }); }
+  if (b.dataset.a === 'bayar') { bukaBayar(b.dataset.id); }
   else if (b.dataset.a === 'hapus') { if (confirm('Hapus data ini? Tindakan ini tidak bisa dibatalkan.')) antre({ op: 'hapus', sheet: b.dataset.s, id: b.dataset.id }); }
 });
 window.addEventListener('online', sinkron);
