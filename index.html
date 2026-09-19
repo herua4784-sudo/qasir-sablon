@@ -56,9 +56,12 @@
   dialog::backdrop { background:rgba(20,33,61,.55); }
   .ghost { width:100%; margin-top:8px; background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:11px; font-size:15px; font-weight:600; cursor:pointer; }
   .err { color:var(--magenta); font-size:13px; margin-top:8px; min-height:1.2em; }
-  .acts { margin-top:7px; display:flex; gap:8px; }
+  .acts { margin-top:7px; display:flex; gap:8px; flex-wrap:wrap; }
   .acts button { background:#fff; border:1px solid var(--line); border-radius:6px; padding:5px 10px; font-size:13px; cursor:pointer; color:var(--ink); }
   .acts button.del { color:var(--magenta); }
+  .acts button.nota { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .notawrap { max-height:58vh; overflow:auto; background:var(--paper); padding:10px; border-radius:8px; }
+  .notawrap img { display:block; width:100%; max-width:420px; margin:0 auto; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.25); }
   .empty { color:var(--muted); padding:8px 0; }
   .lap { display:flex; justify-content:space-between; gap:10px; padding:10px 0; border-top:1px solid var(--line); }
   .lap:first-of-type { border-top:0; }
@@ -167,6 +170,22 @@
       <p class="hint">Isian ini hanya tersimpan di HP ini. Isi sekali saja di setiap HP yang dipakai.</p>
     </div>
     <div class="card">
+      <h2>Data nota (kertas struk)</h2>
+      <label class="f" for="n_nama">Nama usaha</label>
+      <input id="n_nama">
+      <div style="height:10px"></div>
+      <label class="f" for="n_info">Alamat / nomor telepon (opsional)</label>
+      <input id="n_info" placeholder="mis. Jl. Contoh No. 1 · 0812xxxxxxx">
+      <div style="height:10px"></div>
+      <label class="f" for="n_kaki">Tulisan penutup nota</label>
+      <input id="n_kaki">
+      <div style="height:10px"></div>
+      <label class="f" for="n_lebar">Lebar kertas struk</label>
+      <select id="n_lebar"><option value="384">58 mm (paling umum)</option><option value="576">80 mm</option></select>
+      <button class="primary" id="n_btn">Simpan data nota</button>
+      <p class="hint">Tersimpan di HP atau komputer ini saja. Isi sekali di setiap perangkat yang dipakai untuk mengirim nota.</p>
+    </div>
+    <div class="card">
       <h2>Cara kerja offline</h2>
       <p class="hint">Data yang Anda catat langsung tersimpan di HP. Kalau internet ada, data dikirim ke Google Sheets otomatis. Kalau tidak ada, data menunggu di HP dan dikirim begitu internet kembali. Jangan hapus data browser atau uninstall aplikasi selama masih ada data yang menunggu kirim.</p>
     </div>
@@ -175,6 +194,15 @@
 <footer>Qasir Sablon Gelas · versi <span id="ver"></span></footer>
 </div>
 </div>
+<dialog id="dlgNota">
+  <h2>Nota pesanan</h2>
+  <div class="notawrap"><img id="nota_img" alt="Pratinjau nota"></div>
+  <div class="err" id="nota_msg"></div>
+  <button class="primary" id="nota_share" style="margin-top:6px">Bagikan gambar nota</button>
+  <button class="ghost" id="nota_unduh">Simpan gambar</button>
+  <button class="ghost" id="nota_tutup">Tutup</button>
+  <p class="hint">Ketuk <b>Bagikan</b>, pilih WhatsApp, lalu pilih nomor pelanggan. Nota mengikuti kondisi pembayaran saat ini. Kalau ada pembayaran baru, buat nota lagi.</p>
+</dialog>
 <dialog id="dlg">
   <h2>Catat pembayaran</h2>
   <div class="sub" id="dlg_info"></div>
@@ -189,12 +217,16 @@
 <div id="msg"></div>
 
 <script>
-const VERSI = '1.3';
+const VERSI = '1.4';
 const TARIF_OPERATOR = 50;            // Rp per pcs. Ubah angka ini kalau tarif operator berubah.
 const PAKET = 'Sablon + Gelas', JASA = 'Jasa Sablon';
 const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 const tglIndo = (t) => { const m = String(t).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${+m[3]} ${BLN[+m[2] - 1]} ${m[1]}` : t; };
 let opManual = false, bayarId = null;
+const K_NOTA = 'qsg_nota_v1';
+let NOTA = { nama: 'Qasir Sablon Gelas', info: '', kaki: 'Terima kasih atas kepercayaan Anda', lebar: '384' };
+let notaFile = null, notaUrl = null;
+function muatNota() { try { const d = JSON.parse(localStorage.getItem(K_NOTA) || 'null'); if (d) NOTA = { ...NOTA, ...d }; } catch (e) {} }
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1';
 const $ = (id) => document.getElementById(id);
 const rp = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
@@ -249,7 +281,7 @@ function render() {
       <div class="sub"><span class="tag ${jasa ? 'jasa' : 'paket'}">${jasa ? 'Jasa sablon saja' : 'Sablon + gelas'}</span> Operator: ${rp(r.BiayaOperator)}</div>
       <div class="sub">Sudah dibayar: ${rp(r.Dibayar)} &nbsp; ${lunas ? '<span class="tag lunas">Lunas</span>' : '<span class="tag utang">Kurang ' + rp(sisa) + '</span>'} ${r._tunda ? '<span class="tag tunggu">Menunggu kirim</span>' : ''}</div>
       ${r.Catatan ? `<div class="sub">${esc(r.Catatan)}</div>` : ''}
-      <div class="acts">${lunas ? '' : `<button data-a="bayar" data-id="${r.ID}">Catat pembayaran</button>`}<button class="del" data-a="hapus" data-s="Pesanan" data-id="${r.ID}">Hapus</button></div></div>`;
+      <div class="acts">${lunas ? '' : `<button data-a="bayar" data-id="${r.ID}">Catat pembayaran</button>`}<button class="nota" data-a="nota" data-id="${r.ID}">Kirim Nota sebagai Gambar</button><button class="del" data-a="hapus" data-s="Pesanan" data-id="${r.ID}">Hapus</button></div></div>`;
   }).join('') : '<div class="empty">Belum ada pesanan pada periode ini.</div>';
 
   $('b_list').innerHTML = bl.length ? bl.map((r) =>
@@ -394,6 +426,106 @@ function simpanBayar() {
   $('dlg').close(); pesan('Pembayaran ' + rp(tambah) + ' dicatat', 3000);
 }
 
+// ---------- Nota gambar (kertas struk) ----------
+function gambarNota(r) {
+  const W = Number(NOTA.lebar) || 384, SK = 3, PAD = 14, F = 18, LH = 24;
+  const FONT = '"Courier New", Courier, monospace';
+  const gambar = (H) => {
+    const cv = document.createElement('canvas'); cv.width = W * SK; cv.height = H * SK;
+    const c = cv.getContext('2d'); c.scale(SK, SK);
+    c.fillStyle = '#fff'; c.fillRect(0, 0, W, H);
+    c.fillStyle = '#000'; c.strokeStyle = '#000'; c.textBaseline = 'top';
+    let y = 16;
+    const set = (tebal, uk) => { c.font = (tebal ? 'bold ' : '') + (uk || F) + 'px ' + FONT; };
+    const bungkus = (t, lebar) => {
+      const out = [];
+      String(t == null ? '' : t).split('\n').forEach((par) => {
+        let line = '';
+        par.split(/\s+/).filter(Boolean).forEach((w) => {
+          const uji = line ? line + ' ' + w : w;
+          if (c.measureText(uji).width <= lebar) { line = uji; return; }
+          if (line) out.push(line);
+          while (c.measureText(w).width > lebar && w.length > 1) {
+            let i = w.length; while (i > 1 && c.measureText(w.slice(0, i)).width > lebar) i--;
+            out.push(w.slice(0, i)); w = w.slice(i);
+          }
+          line = w;
+        });
+        out.push(line);
+      });
+      return out;
+    };
+    const tengah = (t, tebal, uk) => { set(tebal, uk); c.textAlign = 'center'; bungkus(t, W - 2 * PAD).forEach((l) => { c.fillText(l, W / 2, y); y += (uk || F) + 6; }); };
+    const kiri = (t, tebal) => { set(tebal); c.textAlign = 'left'; bungkus(t, W - 2 * PAD).forEach((l) => { c.fillText(l, PAD, y); y += LH; }); };
+    const kanan = (t, tebal) => { set(tebal); c.textAlign = 'right'; c.fillText(t, W - PAD, y); y += LH; };
+    const kolom = (k, v, tebal) => { set(tebal); c.textAlign = 'left'; c.fillText(k, PAD, y); c.textAlign = 'right'; c.fillText(v, W - PAD, y); y += LH; };
+    const baris = (k, v) => {
+      set(false); c.textAlign = 'left';
+      const lw = c.measureText('Barang ').width;
+      c.fillText(k, PAD, y);
+      bungkus(v, W - 2 * PAD - lw).forEach((l) => { c.fillText(l, PAD + lw, y); y += LH; });
+    };
+    const garis = () => { c.lineWidth = 1.2; c.setLineDash([5, 3]); c.beginPath(); c.moveTo(PAD, y + 6); c.lineTo(W - PAD, y + 6); c.stroke(); c.setLineDash([]); y += 16; };
+
+    tengah((NOTA.nama || 'Sablon Gelas').toUpperCase(), true, 22);
+    if (NOTA.info) tengah(NOTA.info, false, 14);
+    garis();
+    tengah('NOTA PESANAN', true);
+    baris('No', r.NoInvoice || '-');
+    baris('Tgl', tglIndo(r.Tanggal));
+    baris('Nama', r.Pelanggan);
+    garis();
+    baris('Jenis', r.Jenis === JASA ? 'Jasa sablon (gelas dari pelanggan)' : 'Sablon + gelas');
+    if (r.Deskripsi) baris('Barang', r.Deskripsi);
+    if (r.Warna) baris('Warna', r.Warna);
+    y += 4;
+    kiri(`${r.Jumlah} pcs x ${rp(r.HargaSatuan)}`);
+    kanan(rp(r.Total));
+    garis();
+    const sisa = r.Total - r.Dibayar;
+    kolom('TOTAL', rp(r.Total), true);
+    kolom('Dibayar', rp(r.Dibayar));
+    if (sisa > 0) kolom('SISA', rp(sisa), true);
+    else { y += 4; tengah('*** LUNAS ***', true, 22); }
+    if (r.Catatan) { garis(); kiri('Catatan: ' + r.Catatan); }
+    garis();
+    if (NOTA.kaki) tengah(NOTA.kaki, false, 16);
+    tengah('Dicetak ' + tglIndo(hariIni()) + ' ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }), false, 12);
+    y += 10;
+    return { cv, y };
+  };
+  const tinggi = Math.ceil(gambar(2000).y);   // lewat pertama: mengukur tinggi
+  return gambar(tinggi).cv;                   // lewat kedua: menggambar sesuai tinggi
+}
+
+function bukaNota(id) {
+  const r = tampilan().Pesanan.find((x) => x.ID === id); if (!r) return;
+  gambarNota(r).toBlob((blob) => {
+    if (!blob) { pesan('Gagal membuat gambar nota.', 4000); return; }
+    const nama = 'Nota-' + (r.NoInvoice || String(r.Pelanggan).replace(/[^\w]+/g, '-')) + '.png';
+    notaFile = new File([blob], nama, { type: 'image/png' });
+    if (notaUrl) URL.revokeObjectURL(notaUrl);
+    notaUrl = URL.createObjectURL(blob);
+    $('nota_img').src = notaUrl; $('nota_msg').textContent = '';
+    $('dlgNota').showModal();
+  }, 'image/png');
+}
+function unduhNota() {
+  if (!notaFile) return;
+  const a = document.createElement('a'); a.href = notaUrl; a.download = notaFile.name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+async function bagikanNota() {
+  if (!notaFile) return;
+  if (navigator.canShare && navigator.canShare({ files: [notaFile] })) {
+    try { await navigator.share({ files: [notaFile], title: notaFile.name }); }
+    catch (e) { if (e.name !== 'AbortError') $('nota_msg').textContent = 'Gagal membagikan: ' + e.message; }
+  } else {
+    unduhNota();
+    $('nota_msg').textContent = 'Browser ini belum bisa membagikan langsung. Gambar sudah diunduh, silakan kirim lewat WhatsApp.';
+  }
+}
+
 function simpanBelanja() {
   const tgl = $('b_tgl').value, bahan = $('b_nama').value.trim(), total = Number($('b_total').value) || 0;
   if (!tgl || !bahan || total <= 0) { pesan('Isi tanggal, nama bahan, dan total harga.', 3500); return; }
@@ -437,6 +569,14 @@ $('p_jenis').addEventListener('change', () => {
   $('p_harga_lbl').textContent = jasa ? 'Harga jasa sablon per pcs (Rp)' : 'Harga per pcs (Rp)';
   $('p_desk').placeholder = jasa ? 'mis. Gelas 16oz milik pelanggan' : 'mis. Gelas plastik 16oz';
 });
+$('nota_share').onclick = bagikanNota;
+$('nota_unduh').onclick = unduhNota;
+$('nota_tutup').onclick = () => $('dlgNota').close();
+$('n_btn').onclick = () => {
+  NOTA = { nama: $('n_nama').value.trim() || 'Sablon Gelas', info: $('n_info').value.trim(), kaki: $('n_kaki').value.trim(), lebar: $('n_lebar').value };
+  try { localStorage.setItem(K_NOTA, JSON.stringify(NOTA)); } catch (e) {}
+  pesan('Data nota tersimpan', 2500);
+};
 $('dlg_ok').onclick = simpanBayar;
 $('dlg_batal').onclick = () => $('dlg').close();
 $('dlg_lunas').onclick = () => {
@@ -446,6 +586,7 @@ $('dlg_lunas').onclick = () => {
 document.body.addEventListener('click', (e) => {
   const b = e.target.closest('button[data-a]'); if (!b) return;
   if (b.dataset.a === 'bayar') { bukaBayar(b.dataset.id); }
+  else if (b.dataset.a === 'nota') { bukaNota(b.dataset.id); }
   else if (b.dataset.a === 'hapus') { if (confirm('Hapus data ini? Tindakan ini tidak bisa dibatalkan.')) antre({ op: 'hapus', sheet: b.dataset.s, id: b.dataset.id }); }
 });
 window.addEventListener('online', sinkron);
@@ -454,10 +595,11 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) sink
 setInterval(() => { if (S.queue.length) sinkron(); }, 60000);
 
 // ---------- Mulai ----------
-muatLokal();
+muatLokal(); muatNota();
 $('ver').textContent = VERSI;
 $('p_tgl').value = hariIni(); $('b_tgl').value = hariIni(); $('bulan').value = hariIni().slice(0, 7);
 $('c_url').value = S.cfg.url || ''; $('c_token').value = S.cfg.token || '';
+$('n_nama').value = NOTA.nama; $('n_info').value = NOTA.info; $('n_kaki').value = NOTA.kaki; $('n_lebar').value = NOTA.lebar;
 hitung(); render(); sinkron();
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
