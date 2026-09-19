@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14213d">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Qasir Sablon Gelas</title>
+<style>
+  :root { --ink:#14213d; --paper:#eef1f5; --card:#fff; --line:#d5dbe4; --magenta:#d6336c; --cyan:#0b8fa8; --ok:#1f8a4c; --muted:#5d6b82; --warn:#b26a00; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-size:15px; }
+  header { background:var(--ink); color:#fff; padding:14px 16px 0; }
+  header h1 { margin:0 0 10px; font-size:21px; font-weight:800; letter-spacing:.2px; }
+  .bar { display:flex; gap:10px; align-items:center; padding-bottom:12px; font-size:13px; }
+  .bar label { color:#b8c2d6; }
+  .bar input { padding:6px 8px; border-radius:6px; border:0; }
+  .bar button { background:transparent; color:#fff; border:1px solid #5d6b82; border-radius:6px; padding:6px 10px; cursor:pointer; }
+  nav { display:flex; gap:2px; }
+  nav button { flex:1; border:0; background:transparent; color:#b8c2d6; padding:11px 4px; font-size:14px; font-weight:600; border-bottom:3px solid transparent; cursor:pointer; }
+  nav button.on { color:#fff; border-bottom-color:var(--magenta); }
+  #status { padding:9px 16px; font-size:13.5px; font-weight:600; cursor:pointer; text-align:center; }
+  #status.ok { background:#dcf3e5; color:var(--ok); }
+  #status.warn { background:#fff0d6; color:var(--warn); }
+  #status.off { background:#e3e7ee; color:var(--muted); }
+  #status.info { background:#d8eef3; color:var(--cyan); }
+  main { max-width:760px; margin:0 auto; padding:14px; }
+  section { display:none; }
+  section.on { display:block; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px; }
+  h2 { font-size:17px; font-weight:800; margin:0 0 10px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .full { grid-column:1 / -1; }
+  label.f { display:block; font-size:12.5px; color:var(--muted); margin-bottom:3px; }
+  input, select { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:7px; font-size:15px; background:#fff; color:var(--ink); font-family:inherit; }
+  input:focus, select:focus, button:focus-visible, #status:focus-visible { outline:2px solid var(--cyan); outline-offset:1px; }
+  .primary { width:100%; margin-top:12px; background:var(--magenta); color:#fff; border:0; border-radius:8px; padding:12px; font-size:16px; font-weight:700; cursor:pointer; }
+  .preview { margin-top:10px; padding:9px 10px; background:var(--paper); border-radius:7px; font-size:13.5px; color:var(--muted); }
+  .preview b { color:var(--ink); }
+  .item { border-top:1px solid var(--line); padding:11px 0; }
+  .item:first-child { border-top:0; }
+  .row { display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
+  .name { font-weight:700; }
+  .sub { color:var(--muted); font-size:13px; margin-top:2px; }
+  .amt { font-weight:700; white-space:nowrap; }
+  .tag { display:inline-block; font-size:12px; font-weight:700; padding:2px 8px; border-radius:99px; }
+  .tag.lunas { background:#dcf3e5; color:var(--ok); }
+  .tag.utang { background:#fde3ec; color:var(--magenta); }
+  .tag.tunggu { background:#fff0d6; color:var(--warn); }
+  .acts { margin-top:7px; display:flex; gap:8px; }
+  .acts button { background:#fff; border:1px solid var(--line); border-radius:6px; padding:5px 10px; font-size:13px; cursor:pointer; color:var(--ink); }
+  .acts button.del { color:var(--magenta); }
+  .empty { color:var(--muted); padding:8px 0; }
+  .lap { display:flex; justify-content:space-between; gap:10px; padding:10px 0; border-top:1px solid var(--line); }
+  .lap:first-of-type { border-top:0; }
+  .lap.total { font-weight:700; font-size:17px; border-top:2px solid var(--ink); }
+  .pos { color:var(--ok); } .neg { color:var(--magenta); }
+  .hint { color:var(--muted); font-size:13px; line-height:1.5; margin:6px 0 0; }
+  footer { text-align:center; color:var(--muted); font-size:12px; padding:6px 0 24px; }
+  #msg { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:var(--ink); color:#fff; padding:9px 16px; border-radius:8px; font-size:14px; display:none; max-width:90%; z-index:5; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Qasir Sablon Gelas</h1>
+  <div class="bar">
+    <label for="bulan">Bulan</label>
+    <input type="month" id="bulan">
+    <button id="btnSemua">Semua</button>
+  </div>
+  <nav>
+    <button class="on" data-tab="pesanan">Pesanan</button>
+    <button data-tab="belanja">Belanja</button>
+    <button data-tab="laporan">Laporan</button>
+    <button data-tab="setelan">Setelan</button>
+  </nav>
+</header>
+<div id="status" role="button" tabindex="0"></div>
+
+<main>
+  <!-- PESANAN -->
+  <section id="pesanan" class="on">
+    <div class="card">
+      <h2>Catat pesanan baru</h2>
+      <div class="grid">
+        <div><label class="f" for="p_tgl">Tanggal</label><input type="date" id="p_tgl"></div>
+        <div><label class="f" for="p_nama">Nama pelanggan</label><input id="p_nama" placeholder="mis. Bu Rina"></div>
+        <div class="full"><label class="f" for="p_desk">Deskripsi pesanan</label><input id="p_desk" placeholder="mis. Gelas 16oz, logo 1 warna"></div>
+        <div><label class="f" for="p_jml">Jumlah (pcs)</label><input type="number" inputmode="numeric" id="p_jml" min="1"></div>
+        <div><label class="f" for="p_harga">Harga per pcs (Rp)</label><input type="number" inputmode="numeric" id="p_harga" min="0"></div>
+        <div><label class="f" for="p_op">Biaya operator mesin (Rp)</label><input type="number" inputmode="numeric" id="p_op" min="0" value="0"></div>
+        <div><label class="f" for="p_bayar">Sudah dibayar (Rp)</label><input type="number" inputmode="numeric" id="p_bayar" min="0" value="0"></div>
+        <div class="full"><label class="f" for="p_cat">Catatan (opsional)</label><input id="p_cat"></div>
+      </div>
+      <div class="preview" id="p_prev"></div>
+      <button class="primary" id="p_btn">Simpan pesanan</button>
+    </div>
+    <div class="card"><h2>Daftar pesanan</h2><div id="p_list"></div></div>
+  </section>
+
+  <!-- BELANJA -->
+  <section id="belanja">
+    <div class="card">
+      <h2>Catat belanja bahan</h2>
+      <div class="grid">
+        <div><label class="f" for="b_tgl">Tanggal</label><input type="date" id="b_tgl"></div>
+        <div><label class="f" for="b_kat">Kategori</label>
+          <select id="b_kat"><option>Gelas</option><option>Tinta</option><option>Kertas transfer/film</option><option>Bahan kimia</option><option>Lainnya</option></select></div>
+        <div class="full"><label class="f" for="b_nama">Nama bahan</label><input id="b_nama" placeholder="mis. Gelas plastik 16oz"></div>
+        <div><label class="f" for="b_jml">Jumlah</label><input type="number" inputmode="decimal" id="b_jml" min="0"></div>
+        <div><label class="f" for="b_sat">Satuan</label><input id="b_sat" placeholder="pcs / dus / botol / kg"></div>
+        <div><label class="f" for="b_total">Total harga (Rp)</label><input type="number" inputmode="numeric" id="b_total" min="0"></div>
+        <div><label class="f" for="b_sup">Supplier (opsional)</label><input id="b_sup"></div>
+        <div class="full"><label class="f" for="b_cat">Catatan (opsional)</label><input id="b_cat"></div>
+      </div>
+      <button class="primary" id="b_btn">Simpan belanja</button>
+    </div>
+    <div class="card"><h2>Daftar belanja</h2><div id="b_list"></div></div>
+  </section>
+
+  <!-- LAPORAN -->
+  <section id="laporan">
+    <div class="card"><h2 id="l_judul">Laporan</h2><div id="l_isi"></div></div>
+    <div class="card"><h2>Belanja per kategori</h2><div id="l_kat"></div></div>
+  </section>
+
+  <!-- SETELAN -->
+  <section id="setelan">
+    <div class="card">
+      <h2>Hubungkan ke Google Sheets</h2>
+      <label class="f" for="c_url">URL Web App (dari Apps Script)</label>
+      <input id="c_url" placeholder="https://script.google.com/macros/s/.../exec" autocapitalize="off" autocomplete="off">
+      <div style="height:10px"></div>
+      <label class="f" for="c_token">Kata rahasia (token)</label>
+      <input id="c_token" type="password" autocapitalize="off" autocomplete="off">
+      <button class="primary" id="c_btn">Simpan &amp; tes koneksi</button>
+      <p class="hint">Isian ini hanya tersimpan di HP ini. Isi sekali saja di setiap HP yang dipakai.</p>
+    </div>
+    <div class="card">
+      <h2>Cara kerja offline</h2>
+      <p class="hint">Data yang Anda catat langsung tersimpan di HP. Kalau internet ada, data dikirim ke Google Sheets otomatis. Kalau tidak ada, data menunggu di HP dan dikirim begitu internet kembali. Jangan hapus data browser atau uninstall aplikasi selama masih ada data yang menunggu kirim.</p>
+    </div>
+  </section>
+</main>
+<footer>Qasir Sablon Gelas · versi <span id="ver"></span></footer>
+<div id="msg"></div>
+
+<script>
+const VERSI = '1.0';
+const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1';
+const $ = (id) => document.getElementById(id);
+const rp = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => 'q' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const hariIni = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+
+// S.snap  = salinan terakhir data dari Google Sheets
+// S.queue = daftar aksi yang belum terkirim (data baru, pelunasan, hapus)
+let S = { snap: { Pesanan: [], Belanja: [] }, queue: [], cfg: { url: '', token: '' }, lastSync: null };
+let sedang = false, galatSinkron = '';
+
+// ---------- Penyimpanan di HP ----------
+function muatLokal() {
+  try {
+    const d = JSON.parse(localStorage.getItem(K_DATA) || 'null');
+    if (d) { S.snap = d.snap || S.snap; S.queue = d.queue || []; S.lastSync = d.lastSync || null; }
+    const c = JSON.parse(localStorage.getItem(K_CFG) || 'null');
+    if (c) S.cfg = c;
+  } catch (e) {}
+}
+function simpanLokal() {
+  try { localStorage.setItem(K_DATA, JSON.stringify({ snap: S.snap, queue: S.queue, lastSync: S.lastSync })); }
+  catch (e) { pesan('Penyimpanan HP penuh atau diblokir. Data mungkin tidak tersimpan!', 6000); }
+}
+function pesan(t, ms) { const m = $('msg'); m.textContent = t; m.style.display = 'block'; clearTimeout(pesan.t); if (ms) pesan.t = setTimeout(() => { m.style.display = 'none'; }, ms); }
+
+// ---------- Tampilan = salinan Sheets + aksi yang belum terkirim ----------
+function tampilan() {
+  const v = { Pesanan: S.snap.Pesanan.map((r) => ({ ...r })), Belanja: S.snap.Belanja.map((r) => ({ ...r })) };
+  S.queue.forEach((op) => {
+    if (op.op === 'add') { if (!v[op.sheet].some((r) => r.ID === op.row.ID)) v[op.sheet].push({ ...op.row, _tunda: true }); }
+    else if (op.op === 'lunasi') { const r = v.Pesanan.find((x) => x.ID === op.id); if (r) { r.Dibayar = r.Total; r._tunda = true; } }
+    else if (op.op === 'hapus') { v[op.sheet] = v[op.sheet].filter((r) => r.ID !== op.id); }
+  });
+  return v;
+}
+function saring(arr) {
+  const b = $('bulan').value;
+  return arr.filter((r) => !b || String(r.Tanggal).indexOf(b) === 0).sort((a, c) => String(c.Tanggal).localeCompare(String(a.Tanggal)));
+}
+
+function render() {
+  const v = tampilan(), ps = saring(v.Pesanan), bl = saring(v.Belanja);
+
+  $('p_list').innerHTML = ps.length ? ps.map((r) => {
+    const sisa = r.Total - r.Dibayar, lunas = sisa <= 0;
+    return `<div class="item"><div class="row"><span class="name">${esc(r.Pelanggan)}</span><span class="amt">${rp(r.Total)}</span></div>
+      <div class="sub">${esc(r.Tanggal)} · ${esc(r.Deskripsi)} · ${r.Jumlah} pcs × ${rp(r.HargaSatuan)}</div>
+      <div class="sub">Operator: ${rp(r.BiayaOperator)} &nbsp; ${lunas ? '<span class="tag lunas">Lunas</span>' : '<span class="tag utang">Kurang ' + rp(sisa) + '</span>'} ${r._tunda ? '<span class="tag tunggu">Menunggu kirim</span>' : ''}</div>
+      ${r.Catatan ? `<div class="sub">${esc(r.Catatan)}</div>` : ''}
+      <div class="acts">${lunas ? '' : `<button data-a="lunasi" data-id="${r.ID}">Tandai lunas</button>`}<button class="del" data-a="hapus" data-s="Pesanan" data-id="${r.ID}">Hapus</button></div></div>`;
+  }).join('') : '<div class="empty">Belum ada pesanan pada periode ini.</div>';
+
+  $('b_list').innerHTML = bl.length ? bl.map((r) =>
+    `<div class="item"><div class="row"><span class="name">${esc(r.Bahan)}</span><span class="amt">${rp(r.TotalHarga)}</span></div>
+      <div class="sub">${esc(r.Tanggal)} · ${esc(r.Kategori)} · ${r.Jumlah} ${esc(r.Satuan)}${r.Supplier ? ' · ' + esc(r.Supplier) : ''} ${r._tunda ? '<span class="tag tunggu">Menunggu kirim</span>' : ''}</div>
+      ${r.Catatan ? `<div class="sub">${esc(r.Catatan)}</div>` : ''}
+      <div class="acts"><button class="del" data-a="hapus" data-s="Belanja" data-id="${r.ID}">Hapus</button></div></div>`
+  ).join('') : '<div class="empty">Belum ada belanja pada periode ini.</div>';
+
+  // Laporan
+  let omzet = 0, diterima = 0, operator = 0, belanja = 0, pcs = 0;
+  ps.forEach((r) => { omzet += r.Total; diterima += r.Dibayar; operator += r.BiayaOperator; pcs += r.Jumlah; });
+  bl.forEach((r) => { belanja += r.TotalHarga; });
+  const laba = omzet - operator - belanja, kas = diterima - operator - belanja, b = $('bulan').value;
+  $('l_judul').textContent = 'Laporan ' + (b || 'semua periode');
+  const baris = (t, x, k) => `<div class="lap ${k || ''}"><span>${t}</span><span>${x}</span></div>`;
+  $('l_isi').innerHTML =
+    baris('Jumlah pesanan', `${ps.length} pesanan / ${pcs} pcs`) +
+    baris('Omzet (total nilai pesanan)', rp(omzet)) +
+    baris('Biaya operator mesin', '− ' + rp(operator)) +
+    baris('Belanja bahan baku', '− ' + rp(belanja)) +
+    baris('Laba bersih', `<span class="${laba >= 0 ? 'pos' : 'neg'}">${rp(laba)}</span>`, 'total') +
+    baris('Uang sudah diterima', rp(diterima)) +
+    baris('Piutang (belum dibayar pelanggan)', rp(omzet - diterima)) +
+    baris('Kas bersih (diterima − operator − belanja)', `<span class="${kas >= 0 ? 'pos' : 'neg'}">${rp(kas)}</span>`);
+  const per = {};
+  bl.forEach((r) => { const k = r.Kategori || 'Lainnya'; per[k] = (per[k] || 0) + r.TotalHarga; });
+  const ks = Object.keys(per);
+  $('l_kat').innerHTML = ks.length ? ks.map((k) => baris(esc(k), rp(per[k]))).join('') : '<div class="empty">Belum ada belanja.</div>';
+
+  statusBar();
+}
+
+function statusBar() {
+  const n = S.queue.length, el = $('status'), ada = S.cfg.url && S.cfg.token;
+  let cls, txt;
+  if (!ada) { cls = 'warn'; txt = 'Belum terhubung ke Google Sheets. Ketuk untuk mengisi Setelan' + (n ? ` · ${n} data menunggu` : ''); }
+  else if (sedang) { cls = 'info'; txt = 'Mengirim data...'; }
+  else if (!navigator.onLine) { cls = 'off'; txt = 'Offline' + (n ? ` · ${n} data menunggu kirim` : ' · data aman di HP'); }
+  else if (galatSinkron) { cls = 'warn'; txt = `${galatSinkron}${n ? ` · ${n} data menunggu` : ''} (ketuk untuk coba lagi)`; }
+  else if (n) { cls = 'warn'; txt = `${n} data belum terkirim. Ketuk untuk kirim`; }
+  else { cls = 'ok'; txt = 'Online · semua data sudah di Google Sheets' + (S.lastSync ? ` (${S.lastSync})` : ''); }
+  el.className = cls; el.textContent = txt;
+}
+
+// ---------- Komunikasi dengan Google Apps Script ----------
+async function panggil(body) {
+  if (!S.cfg.url || !S.cfg.token) throw new Error('Setelan belum diisi');
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 25000);
+  try {
+    const r = await fetch(S.cfg.url, { method: 'POST', body: JSON.stringify({ token: S.cfg.token, ...body }), signal: ctl.signal });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Server menolak permintaan');
+    return j;
+  } finally { clearTimeout(t); }
+}
+function pesanGalat(e) {
+  if (e.name === 'AbortError') return 'Sinyal lambat, akan dicoba lagi';
+  if (e instanceof SyntaxError) return 'Respons tidak valid. Pastikan akses deployment = Anyone';
+  if (e instanceof TypeError) return 'Tidak bisa terhubung. Cek internet dan URL';
+  return e.message;
+}
+
+async function sinkron() {
+  if (sedang || !navigator.onLine || !S.cfg.url || !S.cfg.token) { statusBar(); return; }
+  sedang = true; galatSinkron = ''; statusBar();
+  try {
+    while (S.queue.length) {
+      const batch = S.queue.slice(0, 25);
+      await panggil({ action: 'sync', ops: batch });
+      const ids = new Set(batch.map((o) => o.opId));
+      S.queue = S.queue.filter((o) => !ids.has(o.opId));
+      simpanLokal();
+    }
+    const r = await panggil({ action: 'data' });
+    S.snap = { Pesanan: r.data.Pesanan || [], Belanja: r.data.Belanja || [] };
+    S.lastSync = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    simpanLokal();
+  } catch (e) { galatSinkron = pesanGalat(e); }
+  finally { sedang = false; render(); }
+}
+
+function antre(op) { op.opId = uid(); S.queue.push(op); simpanLokal(); render(); sinkron(); }
+
+// ---------- Aksi pengguna ----------
+function hitung() {
+  const t = (Number($('p_jml').value) || 0) * (Number($('p_harga').value) || 0);
+  const op = Number($('p_op').value) || 0, by = Number($('p_bayar').value) || 0;
+  $('p_prev').innerHTML = `Total pesanan: <b>${rp(t)}</b> · Sisa: <b>${rp(Math.max(t - by, 0))}</b> · Untung kotor setelah operator: <b>${rp(t - op)}</b>`;
+}
+
+function simpanPesanan() {
+  const jml = Number($('p_jml').value) || 0, harga = Number($('p_harga').value) || 0;
+  const tgl = $('p_tgl').value, nama = $('p_nama').value.trim();
+  if (!tgl || !nama || jml <= 0) { pesan('Isi tanggal, nama pelanggan, dan jumlah.', 3500); return; }
+  antre({ op: 'add', sheet: 'Pesanan', row: {
+    ID: uid(), Tanggal: tgl, Pelanggan: nama, Deskripsi: $('p_desk').value.trim(), Jumlah: jml, HargaSatuan: harga, Total: jml * harga,
+    BiayaOperator: Number($('p_op').value) || 0, Dibayar: Number($('p_bayar').value) || 0, Catatan: $('p_cat').value.trim() } });
+  ['p_nama', 'p_desk', 'p_jml', 'p_harga', 'p_cat'].forEach((i) => { $(i).value = ''; });
+  $('p_op').value = 0; $('p_bayar').value = 0; hitung();
+  pesan('Pesanan tersimpan di HP', 2500);
+}
+
+function simpanBelanja() {
+  const tgl = $('b_tgl').value, bahan = $('b_nama').value.trim(), total = Number($('b_total').value) || 0;
+  if (!tgl || !bahan || total <= 0) { pesan('Isi tanggal, nama bahan, dan total harga.', 3500); return; }
+  antre({ op: 'add', sheet: 'Belanja', row: {
+    ID: uid(), Tanggal: tgl, Bahan: bahan, Kategori: $('b_kat').value, Jumlah: Number($('b_jml').value) || 0, Satuan: $('b_sat').value.trim(),
+    TotalHarga: total, Supplier: $('b_sup').value.trim(), Catatan: $('b_cat').value.trim() } });
+  ['b_nama', 'b_jml', 'b_sat', 'b_total', 'b_sup', 'b_cat'].forEach((i) => { $(i).value = ''; });
+  pesan('Belanja tersimpan di HP', 2500);
+}
+
+async function simpanSetelan() {
+  const url = $('c_url').value.trim(), token = $('c_token').value.trim();
+  if (url.indexOf('https://script.google.com/') !== 0) { pesan('URL harus diawali https://script.google.com/', 4500); return; }
+  if (!token) { pesan('Kata rahasia (token) wajib diisi.', 3500); return; }
+  S.cfg = { url, token };
+  try { localStorage.setItem(K_CFG, JSON.stringify(S.cfg)); } catch (e) {}
+  pesan('Menguji koneksi...');
+  try { await panggil({ action: 'data' }); pesan('Terhubung ke Google Sheets ✓', 3500); sinkron(); }
+  catch (e) { pesan('Gagal: ' + pesanGalat(e), 7000); }
+}
+
+// ---------- Pemasangan event ----------
+document.querySelectorAll('nav button').forEach((b) => { b.onclick = () => bukaTab(b.dataset.tab); });
+function bukaTab(nama) {
+  document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('on', x.dataset.tab === nama));
+  document.querySelectorAll('section').forEach((x) => x.classList.toggle('on', x.id === nama));
+}
+$('status').onclick = () => { if (!S.cfg.url || !S.cfg.token) bukaTab('setelan'); else sinkron(); };
+$('status').onkeydown = (e) => { if (e.key === 'Enter') $('status').click(); };
+$('p_btn').onclick = simpanPesanan;
+$('b_btn').onclick = simpanBelanja;
+$('c_btn').onclick = simpanSetelan;
+$('btnSemua').onclick = () => { $('bulan').value = ''; render(); };
+$('bulan').addEventListener('change', render);
+['p_jml', 'p_harga', 'p_op', 'p_bayar'].forEach((id) => $(id).addEventListener('input', hitung));
+document.body.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-a]'); if (!b) return;
+  if (b.dataset.a === 'lunasi') { antre({ op: 'lunasi', id: b.dataset.id }); }
+  else if (b.dataset.a === 'hapus') { if (confirm('Hapus data ini? Tindakan ini tidak bisa dibatalkan.')) antre({ op: 'hapus', sheet: b.dataset.s, id: b.dataset.id }); }
+});
+window.addEventListener('online', sinkron);
+window.addEventListener('offline', statusBar);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) sinkron(); });
+setInterval(() => { if (S.queue.length) sinkron(); }, 60000);
+
+// ---------- Mulai ----------
+muatLokal();
+$('ver').textContent = VERSI;
+$('p_tgl').value = hariIni(); $('b_tgl').value = hariIni(); $('bulan').value = hariIni().slice(0, 7);
+$('c_url').value = S.cfg.url || ''; $('c_token').value = S.cfg.token || '';
+hitung(); render(); sinkron();
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
