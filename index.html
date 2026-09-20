@@ -396,7 +396,7 @@
 
 <script>
 'use strict';
-const VERSI = '4.4', API_MIN = 6;
+const VERSI = '4.5', API_MIN = 6;
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
 const KAT_ALLIN = 'Harga All-In', KAT_JASA = 'Jasa Sablon Saja';
 const PCS_PER = { pcs: 1, lusin: 12, kodi: 20 };      // satuan lain dihitung 1 per satuan
@@ -913,9 +913,16 @@ function gambarNota(o) {
       if (ket) kiri(ket, 13, false, 16, true);
     });
     garis();
-    const sisa = Math.max(o.Total - o.Dibayar, 0), lab = W * 0.4;
-    set(15); c.textAlign = 'left'; c.fillText('Total Qty: ' + nf(qty), PAD, y + 4);
-    const ukTotal = W <= 384 ? 14 : 18;          // kertas 58 mm: TOTAL, BAYAR, SISA berukuran 14
+    const sisa = Math.max(o.Total - o.Dibayar, 0);
+    const teksQty = 'Total Qty: ' + nf(qty), ukTotal = W <= 384 ? 14 : 18;    // kertas 58 mm: TOTAL, BAYAR, SISA berukuran 14
+    // Tulisan TOTAL/BAYAR/SISA dirapatkan ke angkanya: jarak ke angka hanya 12 px, sejajar satu kolom.
+    set(ukTotal, true); const lebarTotal = c.measureText('TOTAL').width, angkaTotal = c.measureText(n0(o.Total)).width;
+    set(ukTotal, false);
+    const lebarLabel = Math.max(lebarTotal, c.measureText('BAYAR').width, c.measureText('SISA').width);
+    const lebarAngka = Math.max(angkaTotal, c.measureText(n0(o.Dibayar)).width, c.measureText(n0(sisa)).width);
+    set(15); const lebarQty = c.measureText(teksQty).width;
+    const lab = Math.max(W - PAD - lebarAngka - 12 - lebarLabel, PAD + lebarQty + 10);
+    set(15); c.textAlign = 'left'; c.fillText(teksQty, PAD, y + 4);
     dua('TOTAL', n0(o.Total), ukTotal, true, lab);
     dua('BAYAR', n0(o.Dibayar), ukTotal, false, lab);
     dua('SISA', n0(sisa), ukTotal, false, lab);
