@@ -172,6 +172,9 @@
   .riwayat button { background:none; border:0; color:var(--merah); font-size:20px; cursor:pointer; padding:0 6px; }
   .plist { max-height:50vh; overflow:auto; margin:10px -22px 0; }
   .plist .crow { padding:11px 22px; }
+  .info-stok { margin:6px 16px 0; font-size:14px; color:#555; min-height:1.2em; line-height:1.35; }
+  .info-stok.warn { color:var(--merah); font-weight:600; }
+  .tag.stok { background:#dff1e5; color:#1b7f3b; }
   #msg { position:absolute; left:50%; bottom:78px; transform:translateX(-50%); background:#222; color:#fff; padding:10px 18px; border-radius:6px; font-size:14.5px; display:none; max-width:90%; z-index:80; text-align:center; }
   #printarea { display:none; }
   @media print {
@@ -205,6 +208,7 @@
     <div class="bar putih"><div class="jdl">Item</div></div>
     <div class="cari"><input id="ci_cari" type="search" placeholder="Cari nama item" autocomplete="off"></div>
     <div class="isi" id="ci_list"></div>
+    <div class="ringkas" id="ci_ringkas"></div>
     <button class="fab" data-a="crudBaru" data-c="barang" aria-label="Tambah item"><i data-ic="add"></i></button>
   </section>
 
@@ -218,6 +222,7 @@
       <button data-a="lap" data-k="labajual">Laba Penjualan</button>
       <button data-a="lap" data-k="lababersih">Laba Bersih</button>
       <button data-a="lap" data-k="aruskas">Arus Kas</button>
+      <button data-a="lap" data-k="nilaistok">Nilai Stok</button>
       <button data-a="lap" data-k="riwayat">Riwayat Aktivitas</button>
     </div>
   </section>
@@ -323,6 +328,7 @@
       <button class="bi" data-a="itemOK"><i data-ic="cek"></i></button></div>
     <div class="isi">
       <div class="fl"><label for="it_nama">Nama Item</label><div class="dgn"><input id="it_nama" list="dl_brg" autocomplete="off"><datalist id="dl_brg"></datalist><button class="ikon-tombol" data-a="pilihBrg" aria-label="Pilih dari daftar item"><i data-ic="item"></i></button></div></div>
+      <div class="info-stok" id="it_stok"></div>
       <div class="seg" id="it_seg"><button data-a="katPilih" data-k="Harga All-In" class="on">Harga All-In</button><button data-a="katPilih" data-k="Jasa Sablon Saja">Jasa Sablon Saja</button></div>
       <div class="fl"><label for="it_warna">Warna (opsional)</label><input id="it_warna" autocomplete="off"></div>
       <div class="fl"><label for="it_sat">Satuan</label><input id="it_sat" list="dl_sat" autocomplete="off"><datalist id="dl_sat"><option value="pcs"></option><option value="lusin"></option><option value="kodi"></option><option value="dus"></option><option value="pak"></option><option value="set"></option><option value="gelas"></option></datalist></div>
@@ -390,7 +396,7 @@
 
 <script>
 'use strict';
-const VERSI = '3.0', API_MIN = 4;
+const VERSI = '4.0', API_MIN = 5;
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
 const KAT_ALLIN = 'Harga All-In', KAT_JASA = 'Jasa Sablon Saja';
 const PCS_PER = { pcs: 1, lusin: 12, kodi: 20 };      // satuan lain dihitung 1 per satuan
@@ -507,7 +513,39 @@ function tampilan() {
     if (lama > 0) rec.unshift({ ID: '', PesananID: o.ID, Tanggal: o.Tanggal, Jumlah: lama, Via: '', sintetis: true });
     o.Bayar = rec;
   });
-  return { Pesanan: L.Pesanan, Pelanggan: L.Pelanggan, Barang: L.Barang, Belanja: L.Belanja, Pengeluaran: L.Pengeluaran, cfg };
+  L.Barang.forEach((b) => { b.StokAwal = Number(b.StokAwal) || 0; b.HPPAwal = Number(b.HPPAwal) || 0; });
+  const h = hitungStok(L);
+  L.Pesanan.forEach((o) => {
+    o.Modal = 0;
+    o.Items.forEach((it) => { const c = h.cogs[o.ID + '|' + it.ID]; it.Modal = c ? Math.round(c) : 0; it.TanpaHPP = it.Kategori === KAT_ALLIN && !(it.Modal > 0); o.Modal += it.Modal; });
+  });
+  return { Pesanan: L.Pesanan, Pelanggan: L.Pelanggan, Barang: L.Barang, Belanja: L.Belanja, Pengeluaran: L.Pengeluaran, cfg, stok: h.st, kartu: h.kartu };
+}
+// Stok & HPP (rata-rata tertimbang). Semua kejadian diputar ulang berurutan waktu:
+//  stok awal -> pembelian (harga + biaya travel) -> penjualan Harga All-In (mengurangi stok, modal = jumlah x HPP saat itu)
+function hitungStok(L) {
+  const brg = {}; L.Barang.forEach((b) => { brg[b.ID] = b; });
+  const ev = [];
+  L.Barang.forEach((b) => { const q = Number(b.StokAwal) || 0, h = Number(b.HPPAwal) || 0; if (q !== 0 || h) ev.push({ t: '0000-00-00 00:00', o: 0, id: b.ID, qty: q, biaya: q * h, ket: 'Stok awal' }); });
+  L.Belanja.forEach((r) => { if (r.BarangID && brg[r.BarangID]) ev.push({ t: String(r.Tanggal) + ' 00:00', o: 1, id: r.BarangID, qty: Number(r.Jumlah) || 0, biaya: (Number(r.TotalHarga) || 0) + (Number(r.BiayaTravel) || 0), ket: 'Pembelian' + (r.Supplier ? ' · ' + r.Supplier : '') }); });
+  L.Pesanan.forEach((o) => o.Items.forEach((it) => { if (it.BarangID && brg[it.BarangID] && it.Kategori === KAT_ALLIN) ev.push({ t: o.Tanggal + ' ' + (o.Jam || '00:00'), o: 2, id: it.BarangID, qty: pcsItem(it), ket: 'Penjualan ' + (o.NoInvoice || '') + ' · ' + o.Pelanggan, key: o.ID + '|' + it.ID }); }));
+  ev.sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : a.o - b.o));
+  const st = {}, kartu = {}, cogs = {};
+  Object.keys(brg).forEach((id) => { st[id] = { stok: 0, nilai: 0, avg: 0, terakhir: 0 }; kartu[id] = []; });
+  ev.forEach((e) => {
+    const s = st[e.id];
+    if (e.o < 2) {
+      if (e.qty === 0) return;
+      const unit = e.biaya / e.qty;
+      if (s.stok <= 0) { s.stok += e.qty; s.nilai = s.stok > 0 ? s.stok * unit : 0; if (e.qty > 0) s.avg = unit; }
+      else { s.stok += e.qty; s.nilai += e.biaya; s.avg = s.stok > 0 ? s.nilai / s.stok : s.avg; }
+      if (e.o === 1 && e.qty > 0) s.terakhir = unit;
+    } else {
+      const c = e.qty * s.avg; s.stok -= e.qty; s.nilai = s.stok > 0 ? Math.max(0, s.nilai - c) : 0; cogs[e.key] = c;
+    }
+    kartu[e.id].push({ t: e.t, ket: e.ket, qty: e.o < 2 ? e.qty : -e.qty, stok: s.stok, avg: s.avg });
+  });
+  return { st, kartu, cogs };
 }
 function lihat() { return _V || (_V = tampilan()); }
 const urutNota = (a, b) => (b.Tanggal + ' ' + b.Jam).localeCompare(a.Tanggal + ' ' + a.Jam) || String(b.NoInvoice || '').localeCompare(String(a.NoInvoice || ''));
@@ -579,6 +617,7 @@ function render() {
   const v = lihat();
   renderNota(v);
   $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null);
+  $('ci_ringkas').textContent = `Nilai stok ${n0(Math.round(jml(Object.keys(v.stok), (k) => v.stok[k].nilai)))} dari ${v.Barang.length} item.`;
   if ($('l_list').classList.contains('on')) $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan'));
   if (!$('t_setting').classList.contains('on')) isiSetting();
   $('dl_pel').innerHTML = v.Pelanggan.map((p) => `<option value="${esc(p.Nama)}"></option>`).join('');
@@ -710,8 +749,31 @@ function okRincian() {
 }
 
 // Item nota
+function cocokBarang(nama) { const nm = String(nama || '').trim().toLowerCase(); return nm ? lihat().Barang.find((x) => String(x.Nama).trim().toLowerCase() === nm) : null; }
+function pakaiStok(items, lewati) {          // pcs per item stok yang dipakai item Harga All-In
+  const m = {}; items.forEach((it, i) => { if (i !== lewati && it.BarangID && it.Kategori === KAT_ALLIN) m[it.BarangID] = (m[it.BarangID] || 0) + pcsItem(it); }); return m;
+}
+function stokTersedia(id) {                  // stok sekarang + pemakaian nota ini sebelumnya (kalau nota sedang diubah)
+  let s = lihat().stok[id] ? lihat().stok[id].stok : 0;
+  if (E && E.id) { const o = notaDari(E.id); if (o) s += pakaiStok(o.Items)[id] || 0; }
+  return s;
+}
+function cekStok(its) {
+  const butuh = pakaiStok(its), kurang = [];
+  Object.keys(butuh).forEach((id) => { const b = lihat().Barang.find((x) => x.ID === id); if (!b) return; const ada = stokTersedia(id); if (butuh[id] > ada) kurang.push(`${b.Nama}: butuh ${nf(butuh[id])}, stok ${nf(ada)}`); });
+  return kurang;
+}
+function infoStokItem() {
+  const el = $('it_stok'), b = EI.barangId && lihat().Barang.find((x) => x.ID === EI.barangId);
+  el.className = 'info-stok';
+  if (!b) { el.textContent = $('it_nama').value.trim() ? 'Item ini tidak ada di menu Item, jadi stok tidak dilacak.' : ''; return; }
+  if (EI.kat === KAT_JASA) { el.textContent = 'Jasa Sablon Saja: stok gelas tidak berkurang.'; return; }
+  const tersedia = stokTersedia(b.ID) - (pakaiStok(E.items, EI.idx)[b.ID] || 0), butuh = pcsItem(bacaFormItem());
+  el.textContent = `Stok tersedia: ${nf(tersedia)} ${b.Satuan || 'pcs'}` + (butuh > tersedia ? ` — kurang ${nf(butuh - tersedia)}` : '');
+  if (butuh > tersedia) el.className = 'info-stok warn';
+}
 function isiFormItem(it) {
-  EI.kat = it.Kategori || KAT_ALLIN;
+  EI.kat = it.Kategori || KAT_ALLIN; EI.barangId = it.BarangID || '';
   $('it_nama').value = it.Deskripsi || ''; $('it_warna').value = it.Warna || ''; $('it_sat').value = it.Satuan || 'pcs';
   $('it_harga').value = it.Harga === undefined || it.Harga === null ? '' : it.Harga; $('it_disk').value = it.Diskon || '';
   $('it_jml').value = it.Jumlah || ''; $('it_cat').value = it.Catatan || '';
@@ -720,18 +782,19 @@ function isiFormItem(it) {
 function segKat() { document.querySelectorAll('#it_seg button').forEach((b) => b.classList.toggle('on', b.dataset.k === EI.kat)); }
 function bacaFormItem() {
   return { Deskripsi: $('it_nama').value.trim(), Warna: $('it_warna').value.trim(), Satuan: $('it_sat').value.trim() || 'pcs', Kategori: EI.kat,
-    Jumlah: Number($('it_jml').value) || 0, Harga: Number($('it_harga').value) || 0, Diskon: $('it_disk').value.trim(), Catatan: $('it_cat').value.trim() };
+    Jumlah: Number($('it_jml').value) || 0, Harga: Number($('it_harga').value) || 0, Diskon: $('it_disk').value.trim(), Catatan: $('it_cat').value.trim(), BarangID: EI.barangId || '' };
 }
-function hitungItem() { $('it_total').value = n0(subItem(bacaFormItem())); }
+function hitungItem() { $('it_total').value = n0(subItem(bacaFormItem())); infoStokItem(); }
 function autoBarang() {
-  const nm = $('it_nama').value.trim().toLowerCase(); if (!nm) return;
-  const b = lihat().Barang.find((x) => String(x.Nama).trim().toLowerCase() === nm); if (!b) return;
-  if (b.Satuan) $('it_sat').value = b.Satuan;
-  if (EI.hargaAuto) { const h = Number(EI.kat === KAT_JASA ? b.HargaJasa : b.HargaAllIn) || 0; if (h > 0) $('it_harga').value = h; }
+  const b = cocokBarang($('it_nama').value); EI.barangId = b ? b.ID : '';
+  if (b) {
+    if (b.Satuan) $('it_sat').value = b.Satuan;
+    if (EI.hargaAuto) { const h = Number(EI.kat === KAT_JASA ? b.HargaJasa : b.HargaAllIn) || 0; if (h > 0) $('it_harga').value = h; }
+  }
   hitungItem();
 }
-function itemBaru() { EI = { idx: -1, hargaAuto: true, kat: KAT_ALLIN }; $('it_judul').textContent = 'Tambah Item'; $('it_hapus').style.display = 'none'; isiFormItem({ Kategori: KAT_ALLIN, Satuan: 'pcs' }); bukaLayar('l_itemform'); setTimeout(() => $('it_nama').focus(), 60); }
-function itemEdit(i) { EI = { idx: i, hargaAuto: false, kat: E.items[i].Kategori }; $('it_judul').textContent = 'Ubah Item'; $('it_hapus').style.display = ''; isiFormItem(E.items[i]); bukaLayar('l_itemform'); }
+function itemBaru() { EI = { idx: -1, hargaAuto: true, kat: KAT_ALLIN, barangId: '' }; $('it_judul').textContent = 'Tambah Item'; $('it_hapus').style.display = 'none'; isiFormItem({ Kategori: KAT_ALLIN, Satuan: 'pcs' }); bukaLayar('l_itemform'); setTimeout(() => $('it_nama').focus(), 60); }
+function itemEdit(i) { EI = { idx: i, hargaAuto: false, kat: E.items[i].Kategori, barangId: E.items[i].BarangID || '' }; $('it_judul').textContent = 'Ubah Item'; $('it_hapus').style.display = ''; isiFormItem(E.items[i]); bukaLayar('l_itemform'); }
 function okItem() {
   const f = bacaFormItem();
   if (!f.Deskripsi) { pesan('Isi nama item.'); return; }
@@ -765,7 +828,9 @@ function simpanNota() {
   if (E.id && !E.dirty) { const id = E.id; E = null; gantiLayar('l_editor', 'l_preview'); tampilPreview(id); return; }
   const nama = (E.nama || '').trim() || 'CASH';
   const id = E.id || uid();
-  const its = E.items.map((it, i) => ({ ID: it.ID || uid(), Deskripsi: it.Deskripsi, Warna: it.Warna || '', Satuan: it.Satuan, Kategori: it.Kategori, Jumlah: it.Jumlah, Harga: it.Harga, Diskon: String(it.Diskon || ''), Subtotal: subItem(it), Catatan: it.Catatan || '', PesananID: id, Urut: i + 1 }));
+  const its = E.items.map((it, i) => ({ ID: it.ID || uid(), Deskripsi: it.Deskripsi, Warna: it.Warna || '', Satuan: it.Satuan, Kategori: it.Kategori, Jumlah: it.Jumlah, Harga: it.Harga, Diskon: String(it.Diskon || ''), Subtotal: subItem(it), Catatan: it.Catatan || '', BarangID: it.BarangID || '', PesananID: id, Urut: i + 1 }));
+  const kurangStok = cekStok(its);
+  if (kurangStok.length && !confirm('Stok tidak cukup:\n' + kurangStok.join('\n') + '\n\nTetap simpan nota ini?')) return;
   const kat = Array.from(new Set(its.map((i) => i.Kategori)));
   const base = { Tanggal: E.tgl, Jam: E.jam, Pelanggan: nama, Alamat: E.alamat, NoHP: E.hp, Jenis: kat.length === 1 ? kat[0] : 'Campuran',
     Deskripsi: its.map((i) => `${i.Deskripsi} (${nf(i.Jumlah)} ${i.Satuan})`).join(', '), Jumlah: pcsTotal(its), Total: totalItems(its), BiayaOperator: opEfektif(), Catatan: E.memo.trim() };
@@ -925,22 +990,53 @@ function hapusNota(id) {
 
 // ---------- daftar umum: pelanggan, item, pembelian, pengeluaran ----------
 const KAT_BELI = ['Gelas', 'Tinta', 'Kertas transfer/film', 'Bahan kimia', 'Lainnya'];
-const KAT_KELUAR = ['Listrik', 'Gaji', 'Sewa', 'Transport', 'Lainnya'];
+const KAT_KELUAR = ['Gaji', 'Sewa Gudang', 'Listrik', 'Air', 'Internet', 'Transport', 'Lainnya'];
+const stokBarang = (id) => lihat().stok[id] || { stok: 0, avg: 0, nilai: 0, terakhir: 0 };
+const biayaBeli = (r) => (Number(r.TotalHarga) || 0) + (Number(r.BiayaTravel) || 0);
+let pembBarangId = '';
+function infoKartuStok(r) {
+  const s = stokBarang(r.ID), k = (lihat().kartu[r.ID] || []).slice().reverse().slice(0, 40);
+  let h = `<div class="abu">STOK SAAT INI</div>
+    <div class="lp"><span>Stok</span><span class="v ${s.stok < 0 ? 'neg' : ''}">${nf(s.stok)} ${esc(r.Satuan || 'pcs')}</span></div>
+    <div class="lp"><span>HPP rata-rata per pcs<small>dipakai untuk menghitung modal saat penjualan</small></span><span class="v">${s.avg ? n0(Math.round(s.avg)) : '-'}</span></div>
+    <div class="lp"><span>HPP pembelian terakhir</span><span class="v">${s.terakhir ? n0(Math.round(s.terakhir)) : '-'}</span></div>
+    <div class="lp"><span>Nilai stok</span><span class="v">${n0(Math.round(s.nilai))}</span></div>`;
+  if (k.length) h += '<div class="abu">KARTU STOK (TERBARU DI ATAS)</div>' + k.map((m) => `<div class="lp"><span>${esc(m.ket)}<small>${m.t.slice(0, 4) === '0000' ? 'Awal' : tglDMY(m.t.slice(0, 10))} · stok ${nf(m.stok)} · HPP ${n0(Math.round(m.avg))}</small></span><span class="v ${m.qty < 0 ? 'neg' : 'pos'}">${m.qty > 0 ? '+' : ''}${nf(m.qty)}</span></div>`).join('');
+  return h;
+}
 const CRUD = {
   pelanggan: { sheet: 'Pelanggan', judul: 'Pelanggan', tambah: 'Tambah Pelanggan', ubah: 'Ubah Pelanggan', tgl: false, unik: 'Nama',
     f: [{ k: 'Nama', l: 'Nama', w: 1 }, { k: 'Alamat', l: 'Alamat' }, { k: 'NoHP', l: 'Telepon', t: 'tel', h: 'Gunakan kode negara (contoh: 62xxxxxxxxxx)', wa: 1 }],
     cari: (r) => [r.Nama, r.Alamat, r.NoHP].join(' '), urut: (a, b) => String(a.Nama).localeCompare(String(b.Nama), 'id'),
     baris: (r) => `<div class="av">${esc(ini(r.Nama))}</div><div class="cb"><div class="c1"><span>${esc(r.Nama)}</span></div><div class="c2">${esc(r.Alamat || '')}${r.NoHP ? ' · ' + esc(r.NoHP) : ''}</div></div>` },
   barang: { sheet: 'Barang', judul: 'Item', tambah: 'Tambah Item', ubah: 'Ubah Item', tgl: false, unik: 'Nama',
-    f: [{ k: 'Nama', l: 'Nama Item', w: 1 }, { k: 'Satuan', l: 'Satuan', def: 'pcs' }, { k: 'HargaAllIn', l: 'Harga All-In per satuan (Rp)', t: 'number', h: 'Harga gelas + sablon. Boleh dikosongkan.' }, { k: 'HargaJasa', l: 'Harga Jasa Sablon Saja per satuan (Rp)', t: 'number', h: 'Untuk pelanggan yang membawa gelas sendiri. Boleh dikosongkan.' }],
+    f: [{ k: 'Nama', l: 'Nama Item', w: 1 }, { k: 'Satuan', l: 'Satuan', def: 'pcs', h: 'Satuan dasar stok. Disarankan pcs.' },
+      { k: 'HargaAllIn', l: 'Harga jual All-In per satuan (Rp)', t: 'number', h: 'Harga gelas + sablon. Boleh dikosongkan.' },
+      { k: 'HargaJasa', l: 'Harga jual Jasa Sablon Saja per satuan (Rp)', t: 'number', h: 'Untuk pelanggan yang membawa gelas sendiri. Boleh dikosongkan.' },
+      { k: 'StokAwal', l: 'Stok awal (pcs)', t: 'number', h: 'Stok yang ada sekarang, sebelum pembelian dicatat di aplikasi ini. Stok saat ini = stok awal + pembelian − penjualan.' },
+      { k: 'HPPAwal', l: 'HPP awal per pcs (Rp)', t: 'number', h: 'Modal per pcs untuk stok awal. Boleh dikosongkan.' }],
     cari: (r) => r.Nama, urut: (a, b) => String(a.Nama).localeCompare(String(b.Nama), 'id'),
-    baris: (r) => `<div class="cb"><div class="c1"><span>${esc(r.Nama)}</span></div><div class="c2">${esc(r.Satuan || 'pcs')} · All-In ${r.HargaAllIn ? n0(r.HargaAllIn) : '-'} · Jasa ${r.HargaJasa ? n0(r.HargaJasa) : '-'}</div></div>` },
+    baris: (r) => { const s = stokBarang(r.ID); return `<div class="cb"><div class="c1"><span>${esc(r.Nama)}</span><span class="r ${s.stok < 0 ? 'neg' : ''}">${nf(s.stok)} ${esc(r.Satuan || 'pcs')}</span></div><div class="c2">HPP ${s.avg ? n0(Math.round(s.avg)) : '-'} · All-In ${r.HargaAllIn ? n0(r.HargaAllIn) : '-'} · Jasa ${r.HargaJasa ? n0(r.HargaJasa) : '-'}</div></div>`; },
+    info: (r) => infoKartuStok(r) },
   pembelian: { sheet: 'Belanja', judul: 'Pembelian', tambah: 'Tambah Pembelian', ubah: 'Ubah Pembelian', tgl: true,
-    f: [{ k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' }, { k: 'Bahan', l: 'Nama bahan', w: 1 }, { k: 'Kategori', l: 'Kategori', t: 'sel', o: KAT_BELI }, { k: 'Jumlah', l: 'Jumlah', t: 'number' }, { k: 'Satuan', l: 'Satuan' }, { k: 'TotalHarga', l: 'Total harga (Rp)', t: 'number', w: 1, pos: 1 }, { k: 'Supplier', l: 'Supplier (opsional)' }, { k: 'Catatan', l: 'Catatan (opsional)' }],
+    f: [{ k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' },
+      { k: 'Bahan', l: 'Nama item / bahan', t: 'dl', o: 'brg', w: 1 },
+      { k: '_info', t: 'info' },
+      { k: 'Kategori', l: 'Kategori', t: 'sel', o: KAT_BELI },
+      { k: 'Jumlah', l: 'Jumlah (pcs untuk item stok)', t: 'number', pos: 1 },
+      { k: 'Satuan', l: 'Satuan', def: 'pcs' },
+      { k: '_perpcs', l: 'Harga beli per pcs (Rp)', t: 'number', virt: 1, h: 'Isi harga per pcs ATAU total harga di bawah. Salah satunya terisi otomatis.' },
+      { k: 'TotalHarga', l: 'Total harga beli (Rp)', t: 'number', w: 1, pos: 1 },
+      { k: 'BiayaTravel', l: 'Biaya travel / ongkir (Rp)', t: 'number', def: '0' },
+      { k: '_hpp', t: 'info' },
+      { k: 'Supplier', l: 'Supplier (opsional)' }, { k: 'Catatan', l: 'Catatan (opsional)' }],
     cari: (r) => [r.Bahan, r.Kategori, r.Supplier].join(' '), urut: (a, b) => String(b.Tanggal).localeCompare(String(a.Tanggal)),
-    baris: (r) => `<div class="cb"><div class="c1"><span>${esc(r.Bahan)}</span><span class="r">${n0(r.TotalHarga)}</span></div><div class="c2">${tglDMY(r.Tanggal)} · ${esc(r.Kategori || '')} · ${nf(r.Jumlah)} ${esc(r.Satuan || '')}${r.Supplier ? ' · ' + esc(r.Supplier) : ''}</div></div>` },
+    baris: (r) => { const stok = !!(r.BarangID && lihat().Barang.some((b) => b.ID === r.BarangID)), tot = biayaBeli(r), j = Number(r.Jumlah) || 0;
+      return `<div class="cb"><div class="c1"><span>${esc(r.Bahan)}${stok ? ' <span class="tag stok">Stok</span>' : ''}</span><span class="r">${n0(tot)}</span></div><div class="c2">${tglDMY(r.Tanggal)} · ${nf(r.Jumlah)} ${esc(r.Satuan || '')}${stok && j ? ' · HPP ' + n0(Math.round(tot / j)) + '/pcs' : ''}${Number(r.BiayaTravel) ? ' · travel ' + n0(r.BiayaTravel) : ''}${r.Supplier ? ' · ' + esc(r.Supplier) : ''}</div></div>`; } },
   pengeluaran: { sheet: 'Pengeluaran', judul: 'Pengeluaran', tambah: 'Tambah Pengeluaran', ubah: 'Ubah Pengeluaran', tgl: true,
-    f: [{ k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' }, { k: 'Keterangan', l: 'Keterangan', w: 1 }, { k: 'Kategori', l: 'Kategori', t: 'sel', o: KAT_KELUAR }, { k: 'Jumlah', l: 'Jumlah (Rp)', t: 'number', w: 1, pos: 1 }, { k: 'Catatan', l: 'Catatan (opsional)' }],
+    f: [{ k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' }, { k: 'Keterangan', l: 'Keterangan', w: 1 },
+      { k: 'Kategori', l: 'Kategori (Gaji, Sewa Gudang, Listrik, dll)', t: 'dl', o: KAT_KELUAR },
+      { k: 'Jumlah', l: 'Jumlah (Rp)', t: 'number', w: 1, pos: 1 }, { k: 'Catatan', l: 'Catatan (opsional)' }],
     cari: (r) => [r.Keterangan, r.Kategori, r.Catatan].join(' '), urut: (a, b) => String(b.Tanggal).localeCompare(String(a.Tanggal)),
     baris: (r) => `<div class="cb"><div class="c1"><span>${esc(r.Keterangan)}</span><span class="r">${n0(r.Jumlah)}</span></div><div class="c2">${tglDMY(r.Tanggal)} · ${esc(r.Kategori || '')}${r.Catatan ? ' · ' + esc(r.Catatan) : ''}</div></div>` }
 };
@@ -956,26 +1052,62 @@ function bukaDaftar(nama) {
   $('cl_list').innerHTML = daftarCrud(nama, $('cl_cari'), $('cl_bulan')); bukaLayar('l_list');
 }
 function bukaForm(nama, id) {
-  crudAktif = nama; crudEditId = id || null;
+  crudAktif = nama; crudEditId = id || null; pembBarangId = '';
   const c = CRUD[nama], r = id ? lihat()[c.sheet].find((x) => x.ID === id) : null;
   $('f_judul').textContent = id ? c.ubah : c.tambah; $('f_hapus').style.display = id ? '' : 'none';
   $('f_isi').innerHTML = c.f.map((f) => {
-    const v = r ? (r[f.k] == null ? '' : r[f.k]) : (f.def === 'hari' ? hariIni() : (f.def || ''));
+    if (f.t === 'info') return `<div class="info-stok" id="ff_${f.k}"></div>`;
+    let v = r ? (r[f.k] == null ? '' : r[f.k]) : (f.def === 'hari' ? hariIni() : (f.def || ''));
+    if (f.k === '_perpcs') v = r && Number(r.Jumlah) > 0 ? Math.round((Number(r.TotalHarga) || 0) / Number(r.Jumlah) * 100) / 100 : '';
     let inp;
     if (f.t === 'sel') inp = `<select id="ff_${f.k}">${f.o.map((o) => `<option${String(v) === o ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
-    else inp = `<input id="ff_${f.k}" type="${f.t === 'number' ? 'number' : f.t || 'text'}"${f.t === 'number' ? ' inputmode="decimal" min="0"' : ''}${f.t === 'tel' ? ' inputmode="tel"' : ''} value="${esc(v)}" autocomplete="off">`;
+    else {
+      const daftar = f.t === 'dl' ? (f.o === 'brg' ? lihat().Barang.map((b) => b.Nama) : f.o) : null;
+      inp = `<input id="ff_${f.k}" type="${f.t === 'number' ? 'number' : f.t === 'dl' ? 'text' : f.t || 'text'}"${f.t === 'number' ? ' inputmode="decimal" min="0" step="any"' : ''}${f.t === 'tel' ? ' inputmode="tel"' : ''}${daftar ? ` list="dl_f_${f.k}"` : ''} value="${esc(v)}" autocomplete="off">`
+        + (daftar ? `<datalist id="dl_f_${f.k}">${daftar.map((o) => `<option value="${esc(o)}"></option>`).join('')}</datalist>` : '');
+    }
     return `<div class="fl"><label for="ff_${f.k}">${esc(f.l)}</label>${f.wa ? `<div class="dgn">${inp}<button class="ikon-tombol" data-a="wa" data-src="ff_${f.k}" aria-label="Buka WhatsApp">${svg('wa')}</button></div>` : inp}${f.h ? `<div class="petunjuk">${esc(f.h)}</div>` : ''}</div>`;
-  }).join('');
+  }).join('') + (c.info && r ? c.info(r) : '');
+  if (nama === 'pembelian') pasangPembelian(r);
   bukaLayar('l_form');
+}
+// Formulir pembelian: mengenali item stok, menghitung total <-> per pcs, dan menampilkan HPP per pcs
+function pasangPembelian(r) {
+  pembBarangId = r && r.BarangID ? r.BarangID : '';
+  const g = (k) => $('ff_' + k), num = (k) => Number(g(k).value) || 0;
+  let terakhir = r ? 'tot' : '';
+  const segar = () => {
+    const b = cocokBarang(g('Bahan').value); pembBarangId = b ? b.ID : '';
+    const info = g('_info'), sat = g('Satuan');
+    if (b) { sat.value = b.Satuan || 'pcs'; sat.readOnly = true; info.textContent = `✓ Item stok: stok sekarang ${nf(stokBarang(b.ID).stok)} ${b.Satuan || 'pcs'}. Pembelian ini menambah stok dan menjadi acuan HPP.`; }
+    else { sat.readOnly = false; info.textContent = g('Bahan').value.trim() ? 'Bahan biasa (bukan item stok): dicatat sebagai biaya bahan habis pakai.' : ''; }
+    const j = num('Jumlah'), tot = num('TotalHarga'), tr = num('BiayaTravel');
+    g('_hpp').textContent = b && j > 0 ? `HPP per pcs = (${n0(tot)} + ${n0(tr)}) ÷ ${nf(j)} = ${n0(Math.round((tot + tr) / j))}` : '';
+  };
+  g('Bahan').addEventListener('input', segar); g('Bahan').addEventListener('change', segar);
+  g('_perpcs').addEventListener('input', () => { terakhir = 'per'; g('TotalHarga').value = Math.round(num('_perpcs') * num('Jumlah')) || ''; segar(); });
+  g('TotalHarga').addEventListener('input', () => { terakhir = 'tot'; const j = num('Jumlah'); g('_perpcs').value = j > 0 ? Math.round(num('TotalHarga') / j * 100) / 100 : ''; segar(); });
+  g('Jumlah').addEventListener('input', () => {
+    if (terakhir === 'per') g('TotalHarga').value = Math.round(num('_perpcs') * num('Jumlah')) || '';
+    else if (terakhir === 'tot') g('_perpcs').value = num('Jumlah') > 0 ? Math.round(num('TotalHarga') / num('Jumlah') * 100) / 100 : '';
+    segar();
+  });
+  g('BiayaTravel').addEventListener('input', segar);
+  segar();
 }
 function okForm() {
   const c = CRUD[crudAktif], row = {}; let salah = '';
   c.f.forEach((f) => {
+    if (f.t === 'info' || f.virt) return;
     const el = $('ff_' + f.k); let v = el.value.trim();
     if (f.w && !v && !salah) salah = f.l + ' wajib diisi.';
-    if (f.t === 'number') { v = v === '' ? '' : Number(v); if (f.pos && !(v > 0) && !salah) salah = f.l + ' harus lebih dari 0.'; }
+    if (f.t === 'number') { v = v === '' ? '' : Number(v); if (f.pos && v !== '' && !(v > 0) && !salah) salah = f.l + ' harus lebih dari 0.'; }
     row[f.k] = v;
   });
+  if (!salah && crudAktif === 'pembelian') {
+    if (pembBarangId && !(Number(row.Jumlah) > 0)) salah = 'Isi jumlah (pcs) untuk item stok.';
+    row.BarangID = pembBarangId; if (row.BiayaTravel === '') row.BiayaTravel = 0;
+  }
   if (!salah && c.unik) {
     const kembar = lihat()[c.sheet].find((x) => String(x[c.unik]).trim().toLowerCase() === String(row[c.unik]).toLowerCase() && x.ID !== crudEditId);
     if (kembar) salah = c.unik + ' ini sudah ada.';
@@ -990,64 +1122,91 @@ function hapusForm() {
 }
 
 // ---------- laporan ----------
-const LAP = { summary: 'Summary', analisa: 'Analisa Penjualan', harian: 'Rekap Penjualan Harian', labajual: 'Laba Penjualan', lababersih: 'Laba Bersih', aruskas: 'Arus Kas', riwayat: 'Riwayat Aktivitas' };
+const LAP = { summary: 'Summary', analisa: 'Analisa Penjualan', harian: 'Rekap Penjualan Harian', labajual: 'Laba Penjualan', lababersih: 'Laba Bersih', aruskas: 'Arus Kas', nilaistok: 'Nilai Stok', riwayat: 'Riwayat Aktivitas' };
 function bukaLap(k) { LP.k = k; LP.bulan = hariIni().slice(0, 7); $('lp_bulan').value = LP.bulan; $('lp_judul').textContent = LAP[k]; renderLap(); bukaLayar('l_lap'); }
 function dataLap(b) {
   const v = lihat(), dlm = (t) => !b || String(t).slice(0, 7) === b, byr = [];
   v.Pesanan.forEach((o) => o.Bayar.forEach((p) => { if (dlm(p.Tanggal)) byr.push({ ...p, nota: o }); }));
-  return { ps: v.Pesanan.filter((o) => dlm(o.Tanggal)), byr, bl: v.Belanja.filter((r) => dlm(r.Tanggal)), pg: v.Pengeluaran.filter((r) => dlm(r.Tanggal)) };
+  const adaBrg = (r) => !!(r.BarangID && v.Barang.some((x) => x.ID === r.BarangID));
+  const bl = v.Belanja.filter((r) => dlm(r.Tanggal));
+  return { ps: v.Pesanan.filter((o) => dlm(o.Tanggal)), byr, bl, blStok: bl.filter(adaBrg), blBiasa: bl.filter((r) => !adaBrg(r)), pg: v.Pengeluaran.filter((r) => dlm(r.Tanggal)) };
+}
+function labaRugi(d) {
+  const pj = jml(d.ps, (o) => o.Total), modal = jml(d.ps, (o) => o.Modal), op = jml(d.ps, (o) => o.BiayaOperator);
+  const bahan = jml(d.blBiasa, biayaBeli), peng = jml(d.pg, (r) => r.Jumlah);
+  const tanpa = d.ps.reduce((a, o) => a + o.Items.filter((i) => i.TanpaHPP).length, 0);
+  return { pj, modal, kotor: pj - modal, op, bahan, peng, bersih: pj - modal - op - bahan - peng, tanpa };
 }
 const R = (t, v, k, sub) => `<div class="lp ${k || ''}"><span>${t}${sub ? `<small>${sub}</small>` : ''}</span><span class="v">${v}</span></div>`;
+const JD = (t) => `<div class="lp judul"><span>${t}</span><span></span></div>`;
 const warnaAngka = (x) => `<span class="${x >= 0 ? 'pos' : 'neg'}">${n0(x)}</span>`;
 function grup(arr, kunci, nilai) { const m = {}; arr.forEach((x) => { const k = kunci(x); const o = m[k] || (m[k] = { k, n: 0, a: 0, b: 0 }); o.n++; const [a, b] = nilai(x); o.a += a; o.b += b; }); return Object.keys(m).map((k) => m[k]); }
 function renderLap() {
-  const b = LP.bulan, { ps, byr, bl, pg } = dataLap(b), out = [];
-  const pj = jml(ps, (o) => o.Total), op = jml(ps, (o) => o.BiayaOperator), bel = jml(bl, (r) => r.TotalHarga), peng = jml(pg, (r) => r.Jumlah);
-  out.push(`<div class="lp judul"><span>${b ? bulanLabel(b).toUpperCase() : 'SEMUA PERIODE'}</span><span></span></div>`);
+  const b = LP.bulan, d = dataLap(b), { ps, byr, bl, blStok, blBiasa, pg } = d, L = labaRugi(d), v = lihat(), out = [];
+  $('l_lap').querySelector('.periode').style.display = LP.k === 'nilaistok' ? 'none' : '';
+  out.push(JD(LP.k === 'nilaistok' ? 'POSISI SAAT INI' : (b ? bulanLabel(b).toUpperCase() : 'SEMUA PERIODE')));
+  const perKat = grup(pg, (r) => r.Kategori || 'Lainnya', (r) => [Number(r.Jumlah) || 0, 0]).sort((x, y) => y.a - x.a);
+  const barisKat = () => perKat.map((g) => R('&nbsp;&nbsp;' + esc(g.k), '− ' + n0(g.a), '', `${g.n} catatan`));
+  const nilaiStokTotal = Math.round(jml(Object.keys(v.stok), (k) => v.stok[k].nilai));
+  const infoModal = L.tanpa ? `${L.tanpa} item All-In belum punya HPP (bukan item stok / belum ada pembelian)` : 'HPP rata-rata tertimbang: harga beli + biaya travel';
   if (LP.k === 'summary') {
-    out.push(R('Jumlah nota', ps.length), R('Total qty (pcs)', nf(jml(ps, (o) => o.Jumlah))), R('Penjualan', n0(pj)), R('Uang diterima', n0(jml(byr, (p) => p.Jumlah)), '', 'pembayaran yang tercatat pada periode ini'),
-      R('Piutang', n0(jml(ps, (o) => Math.max(o.Total - o.Dibayar, 0))), '', 'sisa tagihan nota pada periode ini'), R('Biaya operator', n0(op)), R('Pembelian bahan', n0(bel)), R('Pengeluaran', n0(peng)), R('Laba bersih', warnaAngka(pj - op - bel - peng), 'tebal'));
+    out.push(R('Jumlah nota', ps.length), R('Total qty (pcs)', nf(jml(ps, (o) => o.Jumlah))), R('Penjualan', n0(L.pj)),
+      R('Modal (HPP barang terjual)', '− ' + n0(L.modal), '', infoModal), R('Laba kotor', warnaAngka(L.kotor), 'tebal'),
+      R('Biaya operator mesin', '− ' + n0(L.op)), R('Bahan habis pakai', '− ' + n0(L.bahan), '', `${blBiasa.length} pembelian bahan biasa`), ...barisKat(),
+      R('LABA BERSIH', warnaAngka(L.bersih), 'tebal'), JD('KAS & STOK'),
+      R('Uang diterima', n0(jml(byr, (p) => p.Jumlah)), '', 'pembayaran yang tercatat pada periode ini'), R('Piutang', n0(jml(ps, (o) => Math.max(o.Total - o.Dibayar, 0))), '', 'sisa tagihan nota pada periode ini'),
+      R('Nilai stok saat ini', n0(nilaiStokTotal), '', 'modal yang masih tertanam di gudang'));
   } else if (LP.k === 'analisa') {
     const its = []; ps.forEach((o) => o.Items.forEach((it) => its.push({ ...it, nota: o })));
-    out.push('<div class="lp judul"><span>PER KATEGORI</span><span></span></div>');
+    out.push(JD('PER KATEGORI'));
     [KAT_ALLIN, KAT_JASA].forEach((k) => { const a = its.filter((i) => i.Kategori === k); if (a.length) out.push(R(k, n0(jml(a, (i) => i.Subtotal)), '', `${a.length} item · ${nf(jml(a, pcsItem))} pcs`)); });
-    out.push('<div class="lp judul"><span>ITEM TERLARIS</span><span></span></div>');
+    out.push(JD('ITEM TERLARIS'));
     grup(its, (i) => String(i.Deskripsi).trim().toLowerCase(), (i) => [i.Subtotal, pcsItem(i)]).sort((x, y) => y.a - x.a).slice(0, 10)
       .forEach((g) => out.push(R(esc(its.find((i) => String(i.Deskripsi).trim().toLowerCase() === g.k).Deskripsi), n0(g.a), '', `${nf(g.b)} pcs · ${g.n}x dipesan`)));
-    out.push('<div class="lp judul"><span>PELANGGAN TERATAS</span><span></span></div>');
+    out.push(JD('PELANGGAN TERATAS'));
     grup(ps, (o) => String(o.Pelanggan).trim().toLowerCase(), (o) => [o.Total, 0]).sort((x, y) => y.a - x.a).slice(0, 10)
       .forEach((g) => out.push(R(esc(ps.find((o) => String(o.Pelanggan).trim().toLowerCase() === g.k).Pelanggan), n0(g.a), '', `${g.n} nota`)));
     if (!its.length) out.push('<div class="kosong">Belum ada penjualan pada periode ini.</div>');
   } else if (LP.k === 'harian') {
     const hari = {};
-    ps.forEach((o) => { const d = hari[o.Tanggal] || (hari[o.Tanggal] = { n: 0, j: 0, t: 0 }); d.n++; d.j += o.Total; });
-    byr.forEach((p) => { const d = hari[p.Tanggal] || (hari[p.Tanggal] = { n: 0, j: 0, t: 0 }); d.t += p.Jumlah; });
+    ps.forEach((o) => { const x = hari[o.Tanggal] || (hari[o.Tanggal] = { n: 0, j: 0, t: 0 }); x.n++; x.j += o.Total; });
+    byr.forEach((p) => { const x = hari[p.Tanggal] || (hari[p.Tanggal] = { n: 0, j: 0, t: 0 }); x.t += p.Jumlah; });
     Object.keys(hari).sort().reverse().forEach((t) => out.push(R(tglDMY(t), n0(hari[t].j), '', `${hari[t].n} nota · diterima ${n0(hari[t].t)}`)));
     if (!Object.keys(hari).length) out.push('<div class="kosong">Belum ada data.</div>');
-    out.push(R('TOTAL', n0(pj), 'tebal', `${ps.length} nota`));
+    out.push(R('TOTAL', n0(L.pj), 'tebal', `${ps.length} nota`));
   } else if (LP.k === 'labajual') {
-    out.push(R('Penjualan', n0(pj)), R('Biaya operator', '− ' + n0(op)), R('Laba penjualan', warnaAngka(pj - op), 'tebal'), '<div class="lp judul"><span>PER NOTA</span><span></span></div>');
-    ps.slice().sort(urutNota).forEach((o) => out.push(R(esc(o.Pelanggan), warnaAngka(o.Total - o.BiayaOperator), '', `${esc(o.NoInvoice || '')} · ${tglDMY(o.Tanggal)} · total ${n0(o.Total)} − operator ${n0(o.BiayaOperator)}`)));
+    out.push(R('Penjualan', n0(L.pj)), R('Modal (HPP barang terjual)', '− ' + n0(L.modal), '', infoModal), R('Laba kotor', warnaAngka(L.kotor), 'tebal'), JD('MODAL PER ITEM'));
+    const its = []; ps.forEach((o) => o.Items.forEach((it) => its.push(it)));
+    grup(its.filter((i) => i.Kategori === KAT_ALLIN), (i) => String(i.Deskripsi).trim().toLowerCase(), (i) => [i.Modal, pcsItem(i)]).sort((x, y) => y.a - x.a)
+      .forEach((g) => out.push(R(esc(its.find((i) => String(i.Deskripsi).trim().toLowerCase() === g.k).Deskripsi), n0(g.a), '', `${nf(g.b)} pcs terjual`)));
+    out.push(JD('PER NOTA'));
+    ps.slice().sort(urutNota).forEach((o) => out.push(R(esc(o.Pelanggan), warnaAngka(o.Total - o.Modal), '', `${esc(o.NoInvoice || '')} · ${tglDMY(o.Tanggal)} · total ${n0(o.Total)} − modal ${n0(o.Modal)}`)));
   } else if (LP.k === 'lababersih') {
-    out.push(R('Penjualan', n0(pj)), R('Biaya operator', '− ' + n0(op)), R('Laba penjualan', warnaAngka(pj - op), 'tebal'), R('Pembelian bahan baku', '− ' + n0(bel), '', `${bl.length} pembelian`), R('Pengeluaran', '− ' + n0(peng), '', `${pg.length} pengeluaran`));
-    grup(pg, (r) => r.Kategori || 'Lainnya', (r) => [Number(r.Jumlah) || 0, 0]).forEach((g) => out.push(R('&nbsp;&nbsp;' + esc(g.k), n0(g.a))));
-    out.push(R('LABA BERSIH', warnaAngka(pj - op - bel - peng), 'tebal'));
+    out.push(R('Penjualan', n0(L.pj)), R('Modal (HPP barang terjual)', '− ' + n0(L.modal), '', infoModal), R('Laba kotor', warnaAngka(L.kotor), 'tebal'), JD('BIAYA OPERASIONAL'),
+      R('Biaya operator mesin', '− ' + n0(L.op)), R('Bahan habis pakai (tinta, film, dll)', '− ' + n0(L.bahan)), ...barisKat(),
+      R('Total biaya operasional', '− ' + n0(L.op + L.bahan + L.peng), 'tebal'), R('LABA BERSIH', warnaAngka(L.bersih), 'tebal'));
+    if (!perKat.length) out.push('<div class="kosong">Belum ada pengeluaran (gaji, sewa gudang, listrik, dll) pada periode ini.</div>');
   } else if (LP.k === 'aruskas') {
-    const masuk = jml(byr, (p) => p.Jumlah), keluar = op + bel + peng;
-    out.push('<div class="lp judul"><span>KAS MASUK</span><span></span></div>');
+    const masuk = jml(byr, (p) => p.Jumlah), beliStok = jml(blStok, biayaBeli), beliBiasa = jml(blBiasa, biayaBeli), keluar = beliStok + beliBiasa + L.op + L.peng;
+    out.push(JD('KAS MASUK'));
     grup(byr, (p) => p.Via || 'Tanpa keterangan', (p) => [p.Jumlah, 0]).forEach((g) => out.push(R(esc(g.k), n0(g.a), '', `${g.n} pembayaran`)));
-    out.push(R('Total kas masuk', n0(masuk), 'tebal'), '<div class="lp judul"><span>KAS KELUAR</span><span></span></div>', R('Biaya operator', n0(op)), R('Pembelian bahan', n0(bel)), R('Pengeluaran', n0(peng)), R('Total kas keluar', n0(keluar), 'tebal'), R('SALDO', warnaAngka(masuk - keluar), 'tebal'), '<div class="lp judul"><span>MUTASI</span><span></span></div>');
+    out.push(R('Total kas masuk', n0(masuk), 'tebal'), JD('KAS KELUAR'), R('Pembelian item stok (harga + travel)', n0(beliStok)), R('Pembelian bahan biasa', n0(beliBiasa)), R('Biaya operator mesin', n0(L.op)),
+      ...perKat.map((g) => R(esc(g.k), n0(g.a))), R('Total kas keluar', n0(keluar), 'tebal'), R('SALDO', warnaAngka(masuk - keluar), 'tebal'), JD('MUTASI'));
     const mut = [];
     byr.forEach((p) => mut.push({ t: p.Tanggal, ket: `Pembayaran ${p.Via || ''} · ${p.nota.Pelanggan}`, v: p.Jumlah }));
-    bl.forEach((r) => mut.push({ t: r.Tanggal, ket: `Pembelian ${r.Bahan}`, v: -(Number(r.TotalHarga) || 0) }));
+    bl.forEach((r) => mut.push({ t: r.Tanggal, ket: `Pembelian ${r.Bahan}`, v: -biayaBeli(r) }));
     pg.forEach((r) => mut.push({ t: r.Tanggal, ket: `Pengeluaran ${r.Keterangan}`, v: -(Number(r.Jumlah) || 0) }));
     mut.sort((x, y) => String(y.t).localeCompare(String(x.t))).forEach((m) => out.push(R(esc(m.ket), warnaAngka(m.v), '', tglDMY(m.t))));
     if (!mut.length) out.push('<div class="kosong">Belum ada mutasi.</div>');
+  } else if (LP.k === 'nilaistok') {
+    v.Barang.slice().sort((x, y) => String(x.Nama).localeCompare(String(y.Nama), 'id')).forEach((bk) => { const s = stokBarang(bk.ID); out.push(R(esc(bk.Nama), n0(Math.round(s.nilai)), '', `${nf(s.stok)} ${esc(bk.Satuan || 'pcs')} × HPP ${n0(Math.round(s.avg))}`)); });
+    if (!v.Barang.length) out.push('<div class="kosong">Belum ada item. Tambahkan di menu Item.</div>');
+    out.push(R('TOTAL NILAI STOK', n0(nilaiStokTotal), 'tebal'));
   } else if (LP.k === 'riwayat') {
     const ev = [];
-    ps.forEach((o) => ev.push({ t: o.Tanggal + ' ' + o.Jam, ket: `Nota ${o.NoInvoice || ''} · ${o.Pelanggan}`, v: n0(o.Total) }));
+    ps.forEach((o) => ev.push({ t: o.Tanggal + ' ' + (o.Jam || '00:00'), ket: `Nota ${o.NoInvoice || ''} · ${o.Pelanggan}`, v: n0(o.Total) }));
     byr.forEach((p) => ev.push({ t: p.Tanggal + ' 99', ket: `Pembayaran ${p.Via || ''} · ${p.nota.Pelanggan}`, v: n0(p.Jumlah) }));
-    bl.forEach((r) => ev.push({ t: r.Tanggal + ' 00', ket: `Pembelian ${r.Bahan}`, v: n0(r.TotalHarga) }));
+    bl.forEach((r) => ev.push({ t: r.Tanggal + ' 00', ket: `Pembelian ${r.Bahan}`, v: n0(biayaBeli(r)) }));
     pg.forEach((r) => ev.push({ t: r.Tanggal + ' 00', ket: `Pengeluaran ${r.Keterangan}`, v: n0(r.Jumlah) }));
     ev.sort((x, y) => y.t.localeCompare(x.t)).slice(0, 150).forEach((e) => out.push(R(esc(e.ket), e.v, '', tglDMY(e.t.slice(0, 10)) + (/\d\d:\d\d/.test(e.t) ? ' ' + e.t.slice(11, 16) : ''))));
     if (!ev.length) out.push('<div class="kosong">Belum ada aktivitas.</div>');
