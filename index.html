@@ -172,7 +172,7 @@
   .riwayat button { background:none; border:0; color:var(--merah); font-size:20px; cursor:pointer; padding:0 6px; }
   .plist { max-height:50vh; overflow:auto; margin:10px -22px 0; }
   .plist .crow { padding:11px 22px; }
-  .info-stok { margin:6px 16px 0; font-size:14px; color:#555; min-height:1.2em; line-height:1.35; }
+  .info-stok { margin:6px 16px 0; font-size:14px; color:#555; min-height:1.2em; line-height:1.4; white-space:pre-line; }
   .info-stok.warn { color:var(--merah); font-weight:600; }
   .tag.stok { background:#dff1e5; color:#1b7f3b; }
   #msg { position:absolute; left:50%; bottom:78px; transform:translateX(-50%); background:#222; color:#fff; padding:10px 18px; border-radius:6px; font-size:14.5px; display:none; max-width:90%; z-index:80; text-align:center; }
@@ -235,28 +235,28 @@
         <h3>Sinkronisasi Google Sheets</h3>
         <div class="p" id="s_status"></div>
         <div class="fl"><label for="c_url">URL Web App (dari Apps Script)</label><input id="c_url" placeholder="https://script.google.com/macros/s/.../exec" autocapitalize="off" autocomplete="off"></div>
-        <div class="fl"><label for="c_token">Kata rahasia (token)</label><input id="c_token" type="password" autocapitalize="off" autocomplete="off"></div>
-        <button class="tombol-kecil" data-a="simpanKoneksi">Simpan &amp; tes koneksi</button>
-        <button class="tombol-kecil putih" data-a="kirimSekarang">Kirim data sekarang</button>
+        <div class="fl"><label for="c_token">Kata Rahasia (Token)</label><input id="c_token" type="password" autocapitalize="off" autocomplete="off"></div>
+        <button class="tombol-kecil" data-a="simpanKoneksi">Simpan &amp; Tes Koneksi</button>
+        <button class="tombol-kecil putih" data-a="kirimSekarang">Kirim Data Sekarang</button>
         <div class="p">Isian ini hanya tersimpan di perangkat ini. Isi sekali di setiap HP atau komputer yang dipakai.</div>
       </div>
       <div class="kartu">
-        <h3>Data usaha &amp; nota</h3>
+        <h3>Data Usaha &amp; Nota</h3>
         <div class="p">Tersimpan di Google Sheet, jadi cukup diisi sekali dan berlaku di semua perangkat.</div>
-        <div class="fl"><label for="u_nama">Nama usaha</label><input id="u_nama"></div>
+        <div class="fl"><label for="u_nama">Nama Usaha</label><input id="u_nama"></div>
         <div class="fl"><label for="u_alamat">Alamat</label><input id="u_alamat"></div>
-        <div class="fl"><label for="u_bayar">Info pembayaran (tampil di bawah alamat)</label><textarea id="u_bayar" placeholder="mis. Pembayaran Transfer ke&#10;BANK ... 0000000000&#10;An. ..."></textarea></div>
-        <div class="fl"><label for="u_kaki">Tulisan penutup nota</label><textarea id="u_kaki"></textarea></div>
-        <div class="fl"><label for="u_lebar">Lebar kertas struk</label><select id="u_lebar"><option value="384">58 mm (paling umum)</option><option value="576">80 mm</option></select></div>
-        <div class="fl"><label for="u_tarif">Biaya operator mesin per pcs (Rp)</label><input id="u_tarif" type="number" inputmode="numeric" min="0"></div>
+        <div class="fl"><label for="u_bayar">Info Pembayaran (tampil di bawah alamat)</label><textarea id="u_bayar" placeholder="mis. Pembayaran Transfer ke&#10;BANK ... 0000000000&#10;An. ..."></textarea></div>
+        <div class="fl"><label for="u_kaki">Tulisan Penutup Nota</label><textarea id="u_kaki"></textarea></div>
+        <div class="fl"><label for="u_lebar">Lebar Kertas Struk</label><select id="u_lebar"><option value="384">58 mm (paling umum)</option><option value="576">80 mm</option></select></div>
+        <div class="fl"><label for="u_tarif">Biaya Operator Mesin per pcs (Rp)</label><input id="u_tarif" type="number" inputmode="numeric" min="0"></div>
         <div class="fl"><label>Logo (tampil di atas nota)</label>
           <input id="u_logo" type="file" accept="image/*" style="border:0;font-size:15px"></div>
         <img class="logo-pv" id="u_logo_pv" alt="Logo">
-        <button class="tombol-kecil merah" id="u_logo_hapus" data-a="hapusLogo" style="display:none">Hapus logo</button>
-        <button class="tombol-kecil" data-a="simpanUsaha">Simpan data usaha</button>
+        <button class="tombol-kecil merah" id="u_logo_hapus" data-a="hapusLogo" style="display:none">Hapus Logo</button>
+        <button class="tombol-kecil" data-a="simpanUsaha">Simpan Data Usaha</button>
       </div>
       <div class="kartu">
-        <h3>Cara kerja offline</h3>
+        <h3>Cara Kerja Offline</h3>
         <div class="p">Data yang Anda catat langsung tersimpan di HP. Kalau internet ada, data dikirim ke Google Sheets otomatis. Kalau tidak ada, data menunggu di HP dan dikirim begitu internet kembali. Jangan hapus data browser atau uninstall aplikasi selama masih ada data yang menunggu kirim.</div>
         <div class="p">Qasir Sablon Gelas · versi <span id="ver"></span></div>
       </div>
@@ -330,7 +330,7 @@
       <div class="fl"><label for="it_nama">Nama Item</label><div class="dgn"><input id="it_nama" list="dl_brg" autocomplete="off"><datalist id="dl_brg"></datalist><button class="ikon-tombol" data-a="pilihBrg" aria-label="Pilih dari daftar item"><i data-ic="item"></i></button></div></div>
       <div class="info-stok" id="it_stok"></div>
       <div class="seg" id="it_seg"><button data-a="katPilih" data-k="Harga All-In" class="on">Harga All-In</button><button data-a="katPilih" data-k="Jasa Sablon Saja">Jasa Sablon Saja</button></div>
-      <div class="fl"><label for="it_warna">Warna (opsional)</label><input id="it_warna" autocomplete="off"></div>
+      <div class="fl"><label for="it_warna">Warna (Opsional)</label><input id="it_warna" autocomplete="off"></div>
       <div class="fl"><label for="it_sat">Satuan</label><input id="it_sat" list="dl_sat" autocomplete="off"><datalist id="dl_sat"><option value="pcs"></option><option value="lusin"></option><option value="kodi"></option><option value="dus"></option><option value="pak"></option><option value="set"></option><option value="gelas"></option></datalist></div>
       <div class="fl dua"><div><label for="it_harga">Harga</label><input id="it_harga" type="number" inputmode="numeric" min="0"></div><div><label for="it_disk">Diskon</label><input id="it_disk" inputmode="decimal" placeholder="mis. 10%"></div></div>
       <div class="qty"><div class="fl"><label for="it_jml">Banyaknya</label><input id="it_jml" type="number" inputmode="decimal" min="0"></div><button class="kotak" data-a="qty" data-d="1">+</button><button class="kotak" data-a="qty" data-d="-1">-</button></div>
@@ -371,18 +371,18 @@
 </div></dialog>
 
 <dialog id="dlgFilter"><div class="dl">
-  <h2>Filter penjualan</h2>
+  <h2>Filter Penjualan</h2>
   <div class="fl"><label for="fl_bulan">Bulan</label><input id="fl_bulan" type="month"></div>
   <div class="fl"><label for="fl_status">Status</label><select id="fl_status"><option value="semua">Semua</option><option value="belum">Belum lunas</option><option value="lunas">Lunas</option></select></div>
   <div class="baris-tombol"><button class="bt putih" data-a="filterReset">Reset</button><button class="bt" data-a="filterOK">Terapkan</button></div>
 </div></dialog>
 
 <dialog id="dlgRincian"><div class="dl">
-  <h2>Rincian nota</h2>
+  <h2>Rincian Nota</h2>
   <div class="fl dua"><div><label for="r_tgl">Tanggal</label><input id="r_tgl" type="date"></div><div><label for="r_jam">Jam</label><input id="r_jam" type="time"></div></div>
-  <div class="fl"><label for="r_inv">No. nota</label><input id="r_inv" readonly></div>
-  <div class="fl"><label for="r_op">Biaya operator mesin (Rp)</label><input id="r_op" type="number" inputmode="numeric" min="0"><div class="petunjuk">Otomatis: jumlah pcs × tarif. Kosongkan untuk kembali ke otomatis.</div></div>
-  <div class="baris-tombol"><button class="bt putih" id="r_hapus" data-a="hapusNotaDlg">Hapus nota</button><button class="bt" data-a="rincianOK">OK</button></div>
+  <div class="fl"><label for="r_inv">No. Nota</label><input id="r_inv" readonly></div>
+  <div class="fl"><label for="r_op">Biaya Operator Mesin (Rp)</label><input id="r_op" type="number" inputmode="numeric" min="0"><div class="petunjuk">Otomatis: jumlah pcs × tarif. Kosongkan untuk kembali ke otomatis.</div></div>
+  <div class="baris-tombol"><button class="bt putih" id="r_hapus" data-a="hapusNotaDlg">Hapus Nota</button><button class="bt" data-a="rincianOK">OK</button></div>
 </div></dialog>
 
 <dialog id="dlgPilih"><div class="dl">
@@ -396,7 +396,7 @@
 
 <script>
 'use strict';
-const VERSI = '4.0', API_MIN = 5;
+const VERSI = '4.1', API_MIN = 6;
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
 const KAT_ALLIN = 'Harga All-In', KAT_JASA = 'Jasa Sablon Saja';
 const PCS_PER = { pcs: 1, lusin: 12, kodi: 20 };      // satuan lain dihitung 1 per satuan
@@ -806,7 +806,7 @@ function okItem() {
 function hapusItem() { if (!confirm('Hapus item ini dari nota?')) return; E.items.splice(EI.idx, 1); E.dirty = true; tutupLayar(); tampilEditor(); }
 
 // Pilih dari daftar (pelanggan / item)
-function bukaPilih(jenis) { pilihJenis = jenis; $('pl_judul').textContent = jenis === 'pelanggan' ? 'Pilih pelanggan' : 'Pilih item'; $('pl_cari').value = ''; renderPilih(); $('dlgPilih').showModal(); }
+function bukaPilih(jenis) { pilihJenis = jenis; $('pl_judul').textContent = jenis === 'pelanggan' ? 'Pilih Pelanggan' : 'Pilih Item'; $('pl_cari').value = ''; renderPilih(); $('dlgPilih').showModal(); }
 function renderPilih() {
   const q = $('pl_cari').value.trim().toLowerCase(), v = lihat();
   const src = pilihJenis === 'pelanggan' ? v.Pelanggan : v.Barang;
@@ -1011,32 +1011,43 @@ const CRUD = {
     baris: (r) => `<div class="av">${esc(ini(r.Nama))}</div><div class="cb"><div class="c1"><span>${esc(r.Nama)}</span></div><div class="c2">${esc(r.Alamat || '')}${r.NoHP ? ' · ' + esc(r.NoHP) : ''}</div></div>` },
   barang: { sheet: 'Barang', judul: 'Item', tambah: 'Tambah Item', ubah: 'Ubah Item', tgl: false, unik: 'Nama',
     f: [{ k: 'Nama', l: 'Nama Item', w: 1 }, { k: 'Satuan', l: 'Satuan', def: 'pcs', h: 'Satuan dasar stok. Disarankan pcs.' },
-      { k: 'HargaAllIn', l: 'Harga jual All-In per satuan (Rp)', t: 'number', h: 'Harga gelas + sablon. Boleh dikosongkan.' },
-      { k: 'HargaJasa', l: 'Harga jual Jasa Sablon Saja per satuan (Rp)', t: 'number', h: 'Untuk pelanggan yang membawa gelas sendiri. Boleh dikosongkan.' },
-      { k: 'StokAwal', l: 'Stok awal (pcs)', t: 'number', h: 'Stok yang ada sekarang, sebelum pembelian dicatat di aplikasi ini. Stok saat ini = stok awal + pembelian − penjualan.' },
-      { k: 'HPPAwal', l: 'HPP awal per pcs (Rp)', t: 'number', h: 'Modal per pcs untuk stok awal. Boleh dikosongkan.' }],
+      { k: 'IsiPerDus', l: 'Isi per Dus (pcs)', t: 'number', h: 'Contoh: 500, 1000, atau 2000. Terisi otomatis saat membeli item ini, dan bisa diubah di tiap pembelian.' },
+      { k: 'HargaAllIn', l: 'Harga Jual All-In per Satuan (Rp)', t: 'number', h: 'Harga gelas + sablon. Boleh dikosongkan.' },
+      { k: 'HargaJasa', l: 'Harga Jual Jasa Sablon Saja per Satuan (Rp)', t: 'number', h: 'Untuk pelanggan yang membawa gelas sendiri. Boleh dikosongkan.' },
+      { k: 'StokAwal', l: 'Stok Awal (pcs)', t: 'number', h: 'Stok yang ada sekarang, sebelum pembelian dicatat di aplikasi ini. Stok saat ini = stok awal + pembelian − penjualan.' },
+      { k: 'HPPAwal', l: 'HPP Awal per pcs (Rp)', t: 'number', h: 'Modal per pcs untuk stok awal. Boleh dikosongkan.' }],
     cari: (r) => r.Nama, urut: (a, b) => String(a.Nama).localeCompare(String(b.Nama), 'id'),
     baris: (r) => { const s = stokBarang(r.ID); return `<div class="cb"><div class="c1"><span>${esc(r.Nama)}</span><span class="r ${s.stok < 0 ? 'neg' : ''}">${nf(s.stok)} ${esc(r.Satuan || 'pcs')}</span></div><div class="c2">HPP ${s.avg ? n0(Math.round(s.avg)) : '-'} · All-In ${r.HargaAllIn ? n0(r.HargaAllIn) : '-'} · Jasa ${r.HargaJasa ? n0(r.HargaJasa) : '-'}</div></div>`; },
     info: (r) => infoKartuStok(r) },
   pembelian: { sheet: 'Belanja', judul: 'Pembelian', tambah: 'Tambah Pembelian', ubah: 'Ubah Pembelian', tgl: true,
     f: [{ k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' },
-      { k: 'Bahan', l: 'Nama item / bahan', t: 'dl', o: 'brg', w: 1 },
+      { k: 'Bahan', l: 'Nama Item', t: 'dl', o: 'brg', w: 1 },
       { k: '_info', t: 'info' },
-      { k: 'Kategori', l: 'Kategori', t: 'sel', o: KAT_BELI },
-      { k: 'Jumlah', l: 'Jumlah (pcs untuk item stok)', t: 'number', pos: 1 },
-      { k: 'Satuan', l: 'Satuan', def: 'pcs' },
-      { k: '_perpcs', l: 'Harga beli per pcs (Rp)', t: 'number', virt: 1, h: 'Isi harga per pcs ATAU total harga di bawah. Salah satunya terisi otomatis.' },
-      { k: 'TotalHarga', l: 'Total harga beli (Rp)', t: 'number', w: 1, pos: 1 },
-      { k: 'BiayaTravel', l: 'Biaya travel / ongkir (Rp)', t: 'number', def: '0' },
-      { k: '_hpp', t: 'info' },
-      { k: 'Supplier', l: 'Supplier (opsional)' }, { k: 'Catatan', l: 'Catatan (opsional)' }],
+      // --- item stok (gelas): dibeli per dus, dijual per pcs ---
+      { k: 'JumlahDus', l: 'Jumlah Dus', t: 'number', g: 'stok' },
+      { k: 'IsiPerDus', l: 'Isi per Dus (pcs)', t: 'number', g: 'stok', h: 'Bisa berbeda tiap pembelian, mis. 500, 1000, atau 2000.' },
+      { k: 'HargaPerDus', l: 'Harga per Dus (Rp)', t: 'number', g: 'stok' },
+      { k: 'TravelPerDus', l: 'Biaya Travel per Dus (Rp)', t: 'number', g: 'stok', h: 'Sesuai kesepakatan dengan sopir travel, mis. 17.000 atau 20.000 per dus.' },
+      { k: '_hpp', t: 'info', g: 'stok' },
+      // --- bahan biasa (tinta, film, dll) ---
+      { k: 'Kategori', l: 'Kategori', t: 'sel', o: KAT_BELI, g: 'biasa' },
+      { k: 'Jumlah', l: 'Jumlah', t: 'number', g: 'biasa' },
+      { k: 'Satuan', l: 'Satuan', g: 'biasa', def: 'pcs' },
+      { k: 'TotalHarga', l: 'Total Harga (Rp)', t: 'number', g: 'biasa' },
+      { k: 'BiayaTravel', l: 'Biaya Travel (Rp)', t: 'number', g: 'biasa' },
+      { k: 'Supplier', l: 'Supplier (Opsional)' }, { k: 'Catatan', l: 'Catatan (Opsional)' }],
     cari: (r) => [r.Bahan, r.Kategori, r.Supplier].join(' '), urut: (a, b) => String(b.Tanggal).localeCompare(String(a.Tanggal)),
-    baris: (r) => { const stok = !!(r.BarangID && lihat().Barang.some((b) => b.ID === r.BarangID)), tot = biayaBeli(r), j = Number(r.Jumlah) || 0;
-      return `<div class="cb"><div class="c1"><span>${esc(r.Bahan)}${stok ? ' <span class="tag stok">Stok</span>' : ''}</span><span class="r">${n0(tot)}</span></div><div class="c2">${tglDMY(r.Tanggal)} · ${nf(r.Jumlah)} ${esc(r.Satuan || '')}${stok && j ? ' · HPP ' + n0(Math.round(tot / j)) + '/pcs' : ''}${Number(r.BiayaTravel) ? ' · travel ' + n0(r.BiayaTravel) : ''}${r.Supplier ? ' · ' + esc(r.Supplier) : ''}</div></div>`; } },
+    baris: (r) => {
+      const stok = !!(r.BarangID && lihat().Barang.some((b) => b.ID === r.BarangID)), tot = biayaBeli(r), j = Number(r.Jumlah) || 0, dus = Number(r.JumlahDus) || 0;
+      let ket;
+      if (stok && dus) ket = `${nf(dus)} dus × ${nf(r.IsiPerDus)} pcs = ${nf(j)} pcs · HPP ${j ? n0(Math.round(tot / j)) : '-'}/pcs · travel ${n0(r.TravelPerDus)}/dus`;
+      else ket = `${nf(r.Jumlah)} ${esc(r.Satuan || '')}${stok && j ? ' · HPP ' + n0(Math.round(tot / j)) + '/pcs' : ''}${Number(r.BiayaTravel) ? ' · travel ' + n0(r.BiayaTravel) : ''}`;
+      return `<div class="cb"><div class="c1"><span>${esc(r.Bahan)}${stok ? ' <span class="tag stok">Stok</span>' : ''}</span><span class="r">${n0(tot)}</span></div><div class="c2">${tglDMY(r.Tanggal)} · ${ket}${r.Supplier ? ' · ' + esc(r.Supplier) : ''}</div></div>`;
+    } },
   pengeluaran: { sheet: 'Pengeluaran', judul: 'Pengeluaran', tambah: 'Tambah Pengeluaran', ubah: 'Ubah Pengeluaran', tgl: true,
     f: [{ k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' }, { k: 'Keterangan', l: 'Keterangan', w: 1 },
       { k: 'Kategori', l: 'Kategori (Gaji, Sewa Gudang, Listrik, dll)', t: 'dl', o: KAT_KELUAR },
-      { k: 'Jumlah', l: 'Jumlah (Rp)', t: 'number', w: 1, pos: 1 }, { k: 'Catatan', l: 'Catatan (opsional)' }],
+      { k: 'Jumlah', l: 'Jumlah (Rp)', t: 'number', w: 1, pos: 1 }, { k: 'Catatan', l: 'Catatan (Opsional)' }],
     cari: (r) => [r.Keterangan, r.Kategori, r.Catatan].join(' '), urut: (a, b) => String(b.Tanggal).localeCompare(String(a.Tanggal)),
     baris: (r) => `<div class="cb"><div class="c1"><span>${esc(r.Keterangan)}</span><span class="r">${n0(r.Jumlah)}</span></div><div class="c2">${tglDMY(r.Tanggal)} · ${esc(r.Kategori || '')}${r.Catatan ? ' · ' + esc(r.Catatan) : ''}</div></div>` }
 };
@@ -1056,9 +1067,12 @@ function bukaForm(nama, id) {
   const c = CRUD[nama], r = id ? lihat()[c.sheet].find((x) => x.ID === id) : null;
   $('f_judul').textContent = id ? c.ubah : c.tambah; $('f_hapus').style.display = id ? '' : 'none';
   $('f_isi').innerHTML = c.f.map((f) => {
-    if (f.t === 'info') return `<div class="info-stok" id="ff_${f.k}"></div>`;
+    const gAttr = f.g ? ` data-grp="${f.g}"` : '';
+    if (f.t === 'info') return `<div class="info-stok" id="ff_${f.k}"${gAttr}></div>`;
     let v = r ? (r[f.k] == null ? '' : r[f.k]) : (f.def === 'hari' ? hariIni() : (f.def || ''));
-    if (f.k === '_perpcs') v = r && Number(r.Jumlah) > 0 ? Math.round((Number(r.TotalHarga) || 0) / Number(r.Jumlah) * 100) / 100 : '';
+    if (nama === 'pembelian' && r && r.BarangID && !Number(r.JumlahDus)) {     // pembelian versi lama: dianggap 1 dus berisi semuanya
+      if (f.k === 'JumlahDus') v = 1; else if (f.k === 'IsiPerDus') v = r.Jumlah; else if (f.k === 'HargaPerDus') v = r.TotalHarga; else if (f.k === 'TravelPerDus') v = r.BiayaTravel || 0;
+    }
     let inp;
     if (f.t === 'sel') inp = `<select id="ff_${f.k}">${f.o.map((o) => `<option${String(v) === o ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
     else {
@@ -1066,33 +1080,39 @@ function bukaForm(nama, id) {
       inp = `<input id="ff_${f.k}" type="${f.t === 'number' ? 'number' : f.t === 'dl' ? 'text' : f.t || 'text'}"${f.t === 'number' ? ' inputmode="decimal" min="0" step="any"' : ''}${f.t === 'tel' ? ' inputmode="tel"' : ''}${daftar ? ` list="dl_f_${f.k}"` : ''} value="${esc(v)}" autocomplete="off">`
         + (daftar ? `<datalist id="dl_f_${f.k}">${daftar.map((o) => `<option value="${esc(o)}"></option>`).join('')}</datalist>` : '');
     }
-    return `<div class="fl"><label for="ff_${f.k}">${esc(f.l)}</label>${f.wa ? `<div class="dgn">${inp}<button class="ikon-tombol" data-a="wa" data-src="ff_${f.k}" aria-label="Buka WhatsApp">${svg('wa')}</button></div>` : inp}${f.h ? `<div class="petunjuk">${esc(f.h)}</div>` : ''}</div>`;
+    return `<div class="fl"${gAttr}><label for="ff_${f.k}">${esc(f.l)}</label>${f.wa ? `<div class="dgn">${inp}<button class="ikon-tombol" data-a="wa" data-src="ff_${f.k}" aria-label="Buka WhatsApp">${svg('wa')}</button></div>` : inp}${f.h ? `<div class="petunjuk">${esc(f.h)}</div>` : ''}</div>`;
   }).join('') + (c.info && r ? c.info(r) : '');
   if (nama === 'pembelian') pasangPembelian(r);
   bukaLayar('l_form');
 }
-// Formulir pembelian: mengenali item stok, menghitung total <-> per pcs, dan menampilkan HPP per pcs
+// Formulir pembelian: item stok dibeli per dus (isi, harga, dan travel per dus), dijual per pcs.
+// Item di luar daftar Item dicatat sebagai bahan biasa (jumlah + total harga).
 function pasangPembelian(r) {
-  pembBarangId = r && r.BarangID ? r.BarangID : '';
-  const g = (k) => $('ff_' + k), num = (k) => Number(g(k).value) || 0;
-  let terakhir = r ? 'tot' : '';
-  const segar = () => {
+  pembBarangId = r && r.BarangID && lihat().Barang.some((b) => b.ID === r.BarangID) ? r.BarangID : '';
+  const g = (k) => $('ff_' + k), num = (k) => Number(g(k).value) || 0, grp = (n) => document.querySelectorAll(`#f_isi [data-grp="${n}"]`);
+  const manual = {}, terakhir = (kunci, idBrg) => lihat().Belanja.filter((x) => x.BarangID && Number(x[kunci]) > 0 && (!idBrg || x.BarangID === idBrg)).sort((a, b) => String(b.Tanggal).localeCompare(String(a.Tanggal)))[0];
+  let sebelumnya = pembBarangId, terisi = false;
+  function segar() {
     const b = cocokBarang(g('Bahan').value); pembBarangId = b ? b.ID : '';
-    const info = g('_info'), sat = g('Satuan');
-    if (b) { sat.value = b.Satuan || 'pcs'; sat.readOnly = true; info.textContent = `✓ Item stok: stok sekarang ${nf(stokBarang(b.ID).stok)} ${b.Satuan || 'pcs'}. Pembelian ini menambah stok dan menjadi acuan HPP.`; }
-    else { sat.readOnly = false; info.textContent = g('Bahan').value.trim() ? 'Bahan biasa (bukan item stok): dicatat sebagai biaya bahan habis pakai.' : ''; }
-    const j = num('Jumlah'), tot = num('TotalHarga'), tr = num('BiayaTravel');
-    g('_hpp').textContent = b && j > 0 ? `HPP per pcs = (${n0(tot)} + ${n0(tr)}) ÷ ${nf(j)} = ${n0(Math.round((tot + tr) / j))}` : '';
-  };
+    grp('stok').forEach((e) => { e.style.display = b ? '' : 'none'; });
+    grp('biasa').forEach((e) => { e.style.display = b ? 'none' : ''; });
+    if (b && sebelumnya !== b.ID && !r) {          // baru memilih item: isi otomatis dari data item / pembelian terakhir
+      const lb = terakhir('HargaPerDus', b.ID), lt = terakhir('TravelPerDus');
+      if (!manual.IsiPerDus) g('IsiPerDus').value = (Number(b.IsiPerDus) > 0 ? b.IsiPerDus : (lb ? lb.IsiPerDus : '')) || '';
+      if (!manual.HargaPerDus) g('HargaPerDus').value = lb ? lb.HargaPerDus : '';
+      if (!manual.TravelPerDus) g('TravelPerDus').value = lt ? lt.TravelPerDus : '';
+      terisi = !!(lb || lt || Number(b.IsiPerDus) > 0);
+    }
+    sebelumnya = b ? b.ID : '';
+    const info = g('_info');
+    if (b) info.textContent = `✓ Item stok: stok sekarang ${nf(stokBarang(b.ID).stok)} ${b.Satuan || 'pcs'}. Dibeli per dus, stok bertambah dalam pcs.` + (terisi && !r ? '\nIsi, harga, dan travel per dus terisi dari data terakhir. Sesuaikan bila berubah.' : '');
+    else info.textContent = g('Bahan').value.trim() ? 'Bahan biasa (bukan item stok): dicatat sebagai biaya bahan habis pakai.' : '';
+    const dus = num('JumlahDus'), isi = num('IsiPerDus'), hg = num('HargaPerDus'), tr = num('TravelPerDus');
+    g('_hpp').textContent = b && dus > 0 && isi > 0
+      ? `Total ${nf(dus * isi)} pcs (${nf(dus)} dus × ${nf(isi)})\nHarga ${n0(dus * hg)} + travel ${n0(dus * tr)} = ${n0(dus * (hg + tr))}\nHPP per pcs = ${n0(Math.round((hg + tr) / isi))}` : '';
+  }
+  ['JumlahDus', 'IsiPerDus', 'HargaPerDus', 'TravelPerDus'].forEach((k) => g(k).addEventListener('input', () => { manual[k] = true; segar(); }));
   g('Bahan').addEventListener('input', segar); g('Bahan').addEventListener('change', segar);
-  g('_perpcs').addEventListener('input', () => { terakhir = 'per'; g('TotalHarga').value = Math.round(num('_perpcs') * num('Jumlah')) || ''; segar(); });
-  g('TotalHarga').addEventListener('input', () => { terakhir = 'tot'; const j = num('Jumlah'); g('_perpcs').value = j > 0 ? Math.round(num('TotalHarga') / j * 100) / 100 : ''; segar(); });
-  g('Jumlah').addEventListener('input', () => {
-    if (terakhir === 'per') g('TotalHarga').value = Math.round(num('_perpcs') * num('Jumlah')) || '';
-    else if (terakhir === 'tot') g('_perpcs').value = num('Jumlah') > 0 ? Math.round(num('TotalHarga') / num('Jumlah') * 100) / 100 : '';
-    segar();
-  });
-  g('BiayaTravel').addEventListener('input', segar);
   segar();
 }
 function okForm() {
@@ -1105,8 +1125,15 @@ function okForm() {
     row[f.k] = v;
   });
   if (!salah && crudAktif === 'pembelian') {
-    if (pembBarangId && !(Number(row.Jumlah) > 0)) salah = 'Isi jumlah (pcs) untuk item stok.';
-    row.BarangID = pembBarangId; if (row.BiayaTravel === '') row.BiayaTravel = 0;
+    const b = cocokBarang(row.Bahan);
+    if (b) {
+      const dus = Number(row.JumlahDus) || 0, isi = Number(row.IsiPerDus) || 0, hg = Number(row.HargaPerDus) || 0, tr = Number(row.TravelPerDus) || 0;
+      if (dus <= 0) salah = 'Isi Jumlah Dus.'; else if (isi <= 0) salah = 'Isi berapa pcs per dus.'; else if (hg <= 0) salah = 'Isi Harga per Dus.';
+      Object.assign(row, { JumlahDus: dus, IsiPerDus: isi, HargaPerDus: hg, TravelPerDus: tr, Jumlah: dus * isi, Satuan: b.Satuan || 'pcs', TotalHarga: dus * hg, BiayaTravel: dus * tr, Kategori: 'Item Stok', BarangID: b.ID });
+    } else {
+      if (!(Number(row.TotalHarga) > 0)) salah = 'Isi Total Harga.';
+      Object.assign(row, { JumlahDus: '', IsiPerDus: '', HargaPerDus: '', TravelPerDus: '', BarangID: '', BiayaTravel: Number(row.BiayaTravel) || 0 });
+    }
   }
   if (!salah && c.unik) {
     const kembar = lihat()[c.sheet].find((x) => String(x[c.unik]).trim().toLowerCase() === String(row[c.unik]).toLowerCase() && x.ID !== crudEditId);
@@ -1150,12 +1177,12 @@ function renderLap() {
   const nilaiStokTotal = Math.round(jml(Object.keys(v.stok), (k) => v.stok[k].nilai));
   const infoModal = L.tanpa ? `${L.tanpa} item All-In belum punya HPP (bukan item stok / belum ada pembelian)` : 'HPP rata-rata tertimbang: harga beli + biaya travel';
   if (LP.k === 'summary') {
-    out.push(R('Jumlah nota', ps.length), R('Total qty (pcs)', nf(jml(ps, (o) => o.Jumlah))), R('Penjualan', n0(L.pj)),
-      R('Modal (HPP barang terjual)', '− ' + n0(L.modal), '', infoModal), R('Laba kotor', warnaAngka(L.kotor), 'tebal'),
-      R('Biaya operator mesin', '− ' + n0(L.op)), R('Bahan habis pakai', '− ' + n0(L.bahan), '', `${blBiasa.length} pembelian bahan biasa`), ...barisKat(),
+    out.push(R('Jumlah Nota', ps.length), R('Total Qty (pcs)', nf(jml(ps, (o) => o.Jumlah))), R('Penjualan', n0(L.pj)),
+      R('Modal (HPP Barang Terjual)', '− ' + n0(L.modal), '', infoModal), R('Laba Kotor', warnaAngka(L.kotor), 'tebal'),
+      R('Biaya Operator Mesin', '− ' + n0(L.op)), R('Bahan Habis Pakai', '− ' + n0(L.bahan), '', `${blBiasa.length} pembelian bahan biasa`), ...barisKat(),
       R('LABA BERSIH', warnaAngka(L.bersih), 'tebal'), JD('KAS & STOK'),
-      R('Uang diterima', n0(jml(byr, (p) => p.Jumlah)), '', 'pembayaran yang tercatat pada periode ini'), R('Piutang', n0(jml(ps, (o) => Math.max(o.Total - o.Dibayar, 0))), '', 'sisa tagihan nota pada periode ini'),
-      R('Nilai stok saat ini', n0(nilaiStokTotal), '', 'modal yang masih tertanam di gudang'));
+      R('Uang Diterima', n0(jml(byr, (p) => p.Jumlah)), '', 'pembayaran yang tercatat pada periode ini'), R('Piutang', n0(jml(ps, (o) => Math.max(o.Total - o.Dibayar, 0))), '', 'sisa tagihan nota pada periode ini'),
+      R('Nilai Stok Saat Ini', n0(nilaiStokTotal), '', 'modal yang masih tertanam di gudang'));
   } else if (LP.k === 'analisa') {
     const its = []; ps.forEach((o) => o.Items.forEach((it) => its.push({ ...it, nota: o })));
     out.push(JD('PER KATEGORI'));
@@ -1175,23 +1202,23 @@ function renderLap() {
     if (!Object.keys(hari).length) out.push('<div class="kosong">Belum ada data.</div>');
     out.push(R('TOTAL', n0(L.pj), 'tebal', `${ps.length} nota`));
   } else if (LP.k === 'labajual') {
-    out.push(R('Penjualan', n0(L.pj)), R('Modal (HPP barang terjual)', '− ' + n0(L.modal), '', infoModal), R('Laba kotor', warnaAngka(L.kotor), 'tebal'), JD('MODAL PER ITEM'));
+    out.push(R('Penjualan', n0(L.pj)), R('Modal (HPP Barang Terjual)', '− ' + n0(L.modal), '', infoModal), R('Laba Kotor', warnaAngka(L.kotor), 'tebal'), JD('MODAL PER ITEM'));
     const its = []; ps.forEach((o) => o.Items.forEach((it) => its.push(it)));
     grup(its.filter((i) => i.Kategori === KAT_ALLIN), (i) => String(i.Deskripsi).trim().toLowerCase(), (i) => [i.Modal, pcsItem(i)]).sort((x, y) => y.a - x.a)
       .forEach((g) => out.push(R(esc(its.find((i) => String(i.Deskripsi).trim().toLowerCase() === g.k).Deskripsi), n0(g.a), '', `${nf(g.b)} pcs terjual`)));
     out.push(JD('PER NOTA'));
     ps.slice().sort(urutNota).forEach((o) => out.push(R(esc(o.Pelanggan), warnaAngka(o.Total - o.Modal), '', `${esc(o.NoInvoice || '')} · ${tglDMY(o.Tanggal)} · total ${n0(o.Total)} − modal ${n0(o.Modal)}`)));
   } else if (LP.k === 'lababersih') {
-    out.push(R('Penjualan', n0(L.pj)), R('Modal (HPP barang terjual)', '− ' + n0(L.modal), '', infoModal), R('Laba kotor', warnaAngka(L.kotor), 'tebal'), JD('BIAYA OPERASIONAL'),
-      R('Biaya operator mesin', '− ' + n0(L.op)), R('Bahan habis pakai (tinta, film, dll)', '− ' + n0(L.bahan)), ...barisKat(),
-      R('Total biaya operasional', '− ' + n0(L.op + L.bahan + L.peng), 'tebal'), R('LABA BERSIH', warnaAngka(L.bersih), 'tebal'));
+    out.push(R('Penjualan', n0(L.pj)), R('Modal (HPP Barang Terjual)', '− ' + n0(L.modal), '', infoModal), R('Laba Kotor', warnaAngka(L.kotor), 'tebal'), JD('BIAYA OPERASIONAL'),
+      R('Biaya Operator Mesin', '− ' + n0(L.op)), R('Bahan Habis Pakai (tinta, film, dll)', '− ' + n0(L.bahan)), ...barisKat(),
+      R('Total Biaya Operasional', '− ' + n0(L.op + L.bahan + L.peng), 'tebal'), R('LABA BERSIH', warnaAngka(L.bersih), 'tebal'));
     if (!perKat.length) out.push('<div class="kosong">Belum ada pengeluaran (gaji, sewa gudang, listrik, dll) pada periode ini.</div>');
   } else if (LP.k === 'aruskas') {
     const masuk = jml(byr, (p) => p.Jumlah), beliStok = jml(blStok, biayaBeli), beliBiasa = jml(blBiasa, biayaBeli), keluar = beliStok + beliBiasa + L.op + L.peng;
     out.push(JD('KAS MASUK'));
     grup(byr, (p) => p.Via || 'Tanpa keterangan', (p) => [p.Jumlah, 0]).forEach((g) => out.push(R(esc(g.k), n0(g.a), '', `${g.n} pembayaran`)));
-    out.push(R('Total kas masuk', n0(masuk), 'tebal'), JD('KAS KELUAR'), R('Pembelian item stok (harga + travel)', n0(beliStok)), R('Pembelian bahan biasa', n0(beliBiasa)), R('Biaya operator mesin', n0(L.op)),
-      ...perKat.map((g) => R(esc(g.k), n0(g.a))), R('Total kas keluar', n0(keluar), 'tebal'), R('SALDO', warnaAngka(masuk - keluar), 'tebal'), JD('MUTASI'));
+    out.push(R('Total Kas Masuk', n0(masuk), 'tebal'), JD('KAS KELUAR'), R('Pembelian Item Stok (harga + travel)', n0(beliStok)), R('Pembelian Bahan Biasa', n0(beliBiasa)), R('Biaya Operator Mesin', n0(L.op)),
+      ...perKat.map((g) => R(esc(g.k), n0(g.a))), R('Total Kas Keluar', n0(keluar), 'tebal'), R('SALDO', warnaAngka(masuk - keluar), 'tebal'), JD('MUTASI'));
     const mut = [];
     byr.forEach((p) => mut.push({ t: p.Tanggal, ket: `Pembayaran ${p.Via || ''} · ${p.nota.Pelanggan}`, v: p.Jumlah }));
     bl.forEach((r) => mut.push({ t: r.Tanggal, ket: `Pembelian ${r.Bahan}`, v: -biayaBeli(r) }));
@@ -1284,7 +1311,7 @@ const ACT = {
   qty: (el) => { const v = Math.max(0, (Number($('it_jml').value) || 0) + Number(el.dataset.d)); $('it_jml').value = v; hitungItem(); },
   wa: (el) => bukaWA($(el.dataset.src).value),
   pvBayar: () => bukaBayar(), pvBagikan: () => bagikanNota(), pvCetak: () => cetakNota(),
-  pvMenu: () => popup([{ a: 'pvUbah', t: 'Ubah nota' }, { a: 'pvWA', t: 'Buka WhatsApp pelanggan' }, { a: 'pvUnduh', t: 'Simpan gambar' }, { a: 'pvHapus', t: 'Hapus nota' }]),
+  pvMenu: () => popup([{ a: 'pvUbah', t: 'Ubah Nota' }, { a: 'pvWA', t: 'Buka WhatsApp Pelanggan' }, { a: 'pvUnduh', t: 'Simpan Gambar' }, { a: 'pvHapus', t: 'Hapus Nota' }]),
   pvUbah: () => { const id = notaAktifId; const st = stack.indexOf('l_preview'); if (st >= 0) { $('l_preview').classList.remove('on'); stack.splice(st, 1); abaikan++; history.back(); } notaEdit(id); },
   pvWA: () => { const o = notaDari(notaAktifId); if (o) bukaWA(o.NoHP); },
   pvUnduh: () => unduhNota(),
