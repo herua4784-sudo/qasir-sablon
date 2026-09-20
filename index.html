@@ -243,7 +243,7 @@
       <div class="kartu">
         <h3>Data Usaha &amp; Nota</h3>
         <div class="p">Tersimpan di Google Sheet, jadi cukup diisi sekali dan berlaku di semua perangkat.</div>
-        <div class="fl"><label for="u_nama">Nama Usaha</label><input id="u_nama"></div>
+        <div class="fl"><label for="u_nama">Nama Usaha (boleh dikosongkan)</label><input id="u_nama"></div>
         <div class="fl"><label for="u_alamat">Alamat</label><input id="u_alamat"></div>
         <div class="fl"><label for="u_bayar">Info Pembayaran (tampil di bawah alamat)</label><textarea id="u_bayar" placeholder="mis. Pembayaran Transfer ke&#10;BANK ... 0000000000&#10;An. ..."></textarea></div>
         <div class="fl"><label for="u_kaki">Tulisan Penutup Nota</label><textarea id="u_kaki"></textarea></div>
@@ -396,11 +396,11 @@
 
 <script>
 'use strict';
-const VERSI = '4.1', API_MIN = 6;
+const VERSI = '4.3', API_MIN = 6;
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
 const KAT_ALLIN = 'Harga All-In', KAT_JASA = 'Jasa Sablon Saja';
 const PCS_PER = { pcs: 1, lusin: 12, kodi: 20 };      // satuan lain dihitung 1 per satuan
-const CFG_DEF = { nama: 'Sablon Gelas', alamat: '', infoBayar: '', kaki: 'Terima kasih', lebar: '384', tarif: '50', logo: '' };
+const CFG_DEF = { nama: '', alamat: '', infoBayar: '', kaki: 'Terima kasih', lebar: '384', tarif: '50', logo: '' };
 const BLN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
 // ---------- alat bantu ----------
@@ -503,7 +503,7 @@ function tampilan() {
   });
   L.Pesanan.forEach((o) => {
     ['Jumlah', 'Total', 'BiayaOperator', 'Dibayar'].forEach((k) => { o[k] = Number(o[k]) || 0; });
-    o.NoHP = String(o.NoHP || ''); o.Jam = String(o.Jam || '');
+    o.NoHP = String(o.NoHP || ''); o.Jam = /^\d{1,2}:\d{2}/.test(String(o.Jam || '')) ? String(o.Jam).slice(0, 5) : '';
     const its = (items[o.ID] || []).sort((a, b) => (Number(a.Urut) || 0) - (Number(b.Urut) || 0))
       .map((it) => ({ ...it, Kategori: normKat(it.Kategori), Jumlah: Number(it.Jumlah) || 0, Harga: Number(it.Harga) || 0, Subtotal: Number(it.Subtotal) || 0, Diskon: it.Diskon == null ? '' : String(it.Diskon) }));
     // nota format lama (1 item di baris nota) ditampilkan sebagai 1 item
@@ -683,12 +683,17 @@ async function sinkron() {
 function antre(op) { op.opId = uid(); S.queue.push(op); _V = null; simpanLokal(); render(); sinkron(); }
 
 // ---------- invoice otomatis ----------
-function invBerikut(tgl) {
-  const p = 'INV-' + String(tgl).slice(2).replace(/-/g, '') + '-';
-  let mx = 0;
-  lihat().Pesanan.forEach((r) => { const v = String(r.NoInvoice || ''); if (v.indexOf(p) === 0) { const n = parseInt(v.slice(p.length), 10); if (n > mx) mx = n; } });
-  return p + String(mx + 1).padStart(3, '0');
+// Nomor invoice acak (bukan berurutan) supaya pelanggan tidak bisa menebak jumlah penjualan.
+function invAcak() {
+  const huruf = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', ada = new Set(lihat().Pesanan.map((o) => String(o.NoInvoice || '')));
+  let inv;
+  do {
+    const b = new Uint8Array(6); (window.crypto || window.msCrypto).getRandomValues(b);
+    inv = 'INV-' + Array.from(b, (x) => huruf.charAt(x % huruf.length)).join('');
+  } while (ada.has(inv));
+  return inv;
 }
+const invFinal = () => (E.inv && !lihat().Pesanan.some((o) => o.NoInvoice === E.inv) ? E.inv : invAcak());
 
 // ---------- editor nota ----------
 const tarif = () => Number(lihat().cfg.tarif) || 0;
@@ -698,7 +703,7 @@ const opEfektif = () => (E.op != null ? E.op : pcsTotal(E.items) * tarif());
 
 function notaBaru() {
   E = { id: null, tgl: hariIni(), jam: jamSkrg(), inv: null, nama: 'CASH', alamat: '', hp: '', memo: '', op: null, simpanPel: true, items: [], dirty: false };
-  E.inv = invBerikut(E.tgl);
+  E.inv = invAcak();
   tampilEditor(); bukaLayar('l_editor');
 }
 function notaEdit(id) {
@@ -741,7 +746,6 @@ function bukaRincian() {
 }
 function okRincian() {
   const tgl = $('r_tgl').value || E.tgl;
-  if (!E.id && tgl !== E.tgl) E.inv = invBerikut(tgl);
   E.tgl = tgl; E.jam = $('r_jam').value || E.jam;
   const v = $('r_op').value.trim();
   E.op = v === '' ? null : Number(v);
@@ -840,7 +844,7 @@ function simpanNota() {
     else if ((p.Alamat || '') !== E.alamat || String(p.NoHP || '') !== E.hp) antre({ op: 'ubah', sheet: 'Pelanggan', id: p.ID, row: { Alamat: E.alamat, NoHP: E.hp } });
   }
   if (E.id) antre({ op: 'ubahPesanan', id, row: base, items: its });
-  else antre({ op: 'addPesanan', row: { ID: id, NoInvoice: invBerikut(E.tgl), Warna: '', HargaSatuan: '', Dibayar: 0, ...base }, items: its });
+  else antre({ op: 'addPesanan', row: { ID: id, NoInvoice: invFinal(), Warna: '', HargaSatuan: '', Dibayar: 0, ...base }, items: its });
   E = null; gantiLayar('l_editor', 'l_preview'); tampilPreview(id);
 }
 
@@ -881,16 +885,17 @@ function gambarNota(o) {
     const dua = (k, v, uk, tebal, x0) => { set(uk, tebal); c.textAlign = 'left'; c.fillText(k, x0, y); c.textAlign = 'right'; c.fillText(v, W - PAD, y); y += Math.round(uk * 1.4); };
 
     if (logoImg && logoImg.naturalWidth) { const lw = Math.min(W * 0.55, 220), lh = lw * logoImg.naturalHeight / logoImg.naturalWidth; c.drawImage(logoImg, (W - lw) / 2, y, lw, lh); y += lh + 8; }
-    tengah(cfg.nama || 'Sablon Gelas', 22, false);
-    if (cfg.alamat) tengah(cfg.alamat, 15);
+    if (cfg.nama) tengah(cfg.nama, 22, false);
+    if (cfg.alamat) tengah(cfg.alamat, 12);
     if (cfg.infoBayar) { y += 8; tengah(cfg.infoBayar, 15); }
     y += 8;
+    if (o.Total - o.Dibayar <= 0) { tengah('*** LUNAS ***', 16, true); y += 4; }
     set(15); c.textAlign = 'left'; c.fillText(waktu(o), PAD, y);
     if (o.NoInvoice) { set(13); c.textAlign = 'right'; c.fillText(o.NoInvoice, W - PAD, y + 1); }
     y += 24; garis();
     kiri(o.Pelanggan || 'CASH', 25, false);
-    if (o.Alamat) kiri(o.Alamat, 15);
-    if (o.NoHP) kiri(o.NoHP, 14, false, 0, true);
+    if (o.Alamat) kiri(o.Alamat, 13);
+    if (o.NoHP) kiri(o.NoHP, 12, false, 0, true);
     garis();
     let qty = 0;
     o.Items.forEach((it, i) => {
@@ -904,16 +909,15 @@ function gambarNota(o) {
       c.textAlign = 'right'; c.fillText(sub, W - PAD, y); y += 23;
       const dr = diskonRp((Number(it.Jumlah) || 0) * (Number(it.Harga) || 0), it.Diskon);
       if (dr > 0) { set(14); c.textAlign = 'right'; c.fillStyle = '#555'; c.fillText(`Diskon ${it.Diskon}   -${n0(dr)}`, W - PAD, y); c.fillStyle = '#000'; y += 20; }
-      const ket = [it.Kategori, it.Warna ? 'Warna ' + it.Warna : '', it.Catatan].filter(Boolean).join(' · ');
+      const ket = [it.Warna ? 'Warna ' + it.Warna : '', it.Catatan].filter(Boolean).join(' · ');   // kategori (All-In / Jasa Saja) tidak dicetak di nota
       if (ket) kiri(ket, 13, false, 16, true);
     });
     garis();
     const sisa = Math.max(o.Total - o.Dibayar, 0), lab = W * 0.4;
     set(15); c.textAlign = 'left'; c.fillText('Total Qty: ' + nf(qty), PAD, y + 4);
-    dua('TOTAL', n0(o.Total), 21, true, lab);
+    dua('TOTAL', n0(o.Total), 18, true, lab);
     dua('BAYAR', n0(o.Dibayar), 18, false, lab);
     dua('SISA', n0(sisa), 18, false, lab);
-    if (o.Total - o.Dibayar <= 0) { y += 2; tengah('*** LUNAS ***', 21, true); }
     if (o.Catatan) { garis(); kiri('Catatan: ' + o.Catatan, 15); }
     if (cfg.kaki) { y += 6; tengah(cfg.kaki, 15); }
     y += 12;
@@ -1249,7 +1253,7 @@ function isiSetting() {
   const pv = $('u_logo_pv'); pv.style.display = c.logo ? 'block' : 'none'; if (c.logo) pv.src = c.logo; $('u_logo_hapus').style.display = c.logo ? '' : 'none';
 }
 function simpanUsaha() {
-  const kv = { nama: $('u_nama').value.trim() || 'Sablon Gelas', alamat: $('u_alamat').value.trim(), infoBayar: $('u_bayar').value.trim(), kaki: $('u_kaki').value.trim(), lebar: $('u_lebar').value, tarif: String(Number($('u_tarif').value) || 0) };
+  const kv = { nama: $('u_nama').value.trim(), alamat: $('u_alamat').value.trim(), infoBayar: $('u_bayar').value.trim(), kaki: $('u_kaki').value.trim(), lebar: $('u_lebar').value, tarif: String(Number($('u_tarif').value) || 0) };
   const c = lihat().cfg;
   Object.keys(kv).forEach((k) => { if (String(c[k]) !== String(kv[k])) antre({ op: 'setel', key: k, value: kv[k] }); });
   pesan('Data usaha tersimpan', 2500);
