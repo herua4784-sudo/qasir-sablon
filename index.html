@@ -415,7 +415,7 @@
 
 <script>
 'use strict';
-const VERSI = '4.9', API_MIN = 7;
+const VERSI = '4.10', API_MIN = 7;
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
 const KAT_ALLIN = 'Harga All-In', KAT_JASA = 'Jasa Sablon Saja';
@@ -541,7 +541,7 @@ function tampilan() {
     if (lama > 0) rec.unshift({ ID: '', PesananID: o.ID, Tanggal: o.Tanggal, Jumlah: lama, Via: '', sintetis: true });
     o.Bayar = rec;
   });
-  L.Barang.forEach((b) => { b.StokAwal = Number(b.StokAwal) || 0; });
+  L.Barang.forEach((b) => { b.StokAwal = Number(b.StokAwal) || 0; b.HPPAwal = Number(b.HPPAwal) || 0; });
   const h = hitungStok(L);
   L.Pesanan.forEach((o) => {
     o.Modal = 0;
@@ -554,17 +554,20 @@ function tampilan() {
 function hitungStok(L) {
   const brg = {}; L.Barang.forEach((b) => { brg[b.ID] = b; });
   const ev = [];
-  L.Barang.forEach((b) => { const q = Number(b.StokAwal) || 0; if (q !== 0) ev.push({ t: '0000-00-00 00:00', o: 0, id: b.ID, qty: q, ket: 'Stok awal' }); });
+  L.Barang.forEach((b) => { const q = Number(b.StokAwal) || 0; if (q !== 0) ev.push({ t: '0000-00-00 00:00', o: 0, id: b.ID, qty: q, hpp: Number(b.HPPAwal) || 0, ket: 'Stok awal' }); });
   L.Belanja.forEach((r) => { if (r.BarangID && brg[r.BarangID]) ev.push({ t: String(r.Tanggal) + ' 00:00', o: 1, id: r.BarangID, qty: Number(r.Jumlah) || 0, biaya: (Number(r.TotalHarga) || 0) + (Number(r.BiayaTravel) || 0), ket: 'Pembelian' + (r.Supplier ? ' · ' + r.Supplier : '') }); });
   L.Pesanan.forEach((o) => o.Items.forEach((it) => { if (it.BarangID && brg[it.BarangID] && it.Kategori === KAT_ALLIN) ev.push({ t: o.Tanggal + ' ' + (o.Jam || '00:00'), o: 2, id: it.BarangID, qty: pcsItem(it), ket: 'Penjualan ' + (o.NoInvoice || '') + ' · ' + o.Pelanggan, key: o.ID + '|' + it.ID }); }));
   ev.sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : a.o - b.o));
-  // HPP hanya dihitung dari pembelian (harga + biaya travel). Stok awal belum diketahui modalnya:
-  // begitu ada pembelian, stok awal dihargai sama dengan pembelian itu.
+  // HPP dihitung dari HPP Awal (bila diisi) dan pembelian (harga + biaya travel), dengan rata-rata tertimbang.
+  // Bila HPP Awal dikosongkan, modal stok awal belum diketahui: begitu ada pembelian, stok awal dihargai sama dengan pembelian itu.
   const st = {}, kartu = {}, cogs = {};
   Object.keys(brg).forEach((id) => { st[id] = { stok: 0, nilai: 0, avg: 0, terakhir: 0, unk: 0 }; kartu[id] = []; });
   ev.forEach((e) => {
     const s = st[e.id];
-    if (e.o === 0) { s.stok += e.qty; s.unk = Math.max(0, s.unk + e.qty); }
+    if (e.o === 0) {
+      if (e.hpp > 0 && e.qty > 0 && s.stok <= 0) { s.stok = e.qty; s.avg = e.hpp; s.unk = 0; }        // stok awal dengan HPP yang diketahui
+      else { s.stok += e.qty; s.unk = Math.max(0, s.unk + e.qty); }                                   // stok awal tanpa HPP
+    }
     else if (e.o === 1) {
       if (e.qty === 0) return;
       const unit = e.biaya / e.qty;
@@ -1078,7 +1081,8 @@ const CRUD = {
   barang: { sheet: 'Barang', judul: 'Item', tambah: 'Tambah Item', ubah: 'Ubah Item', tgl: false, unik: 'Nama',
     f: [{ k: 'Nama', l: 'Nama Item', w: 1 }, { k: 'Satuan', l: 'Satuan', def: 'pcs', h: 'Satuan dasar stok. Disarankan pcs.' },
       { k: 'IsiPerDus', l: 'Isi per Dus (pcs)', t: 'number', h: 'Contoh: 500, 1000, atau 2000. Terisi otomatis saat membeli item ini, dan bisa diubah di tiap pembelian.' },
-      { k: 'StokAwal', l: 'Stok Awal (pcs)', t: 'number', h: 'Stok yang ada sekarang, sebelum pembelian dicatat di aplikasi ini. Stok saat ini = stok awal + pembelian − penjualan. HPP dihitung dari pembelian.' }],
+      { k: 'StokAwal', l: 'Stok Awal (pcs)', t: 'number', h: 'Stok yang ada sekarang, sebelum pembelian dicatat di aplikasi ini. Stok saat ini = stok awal + pembelian − penjualan.' },
+      { k: 'HPPAwal', l: 'HPP Awal per pcs (Rp)', t: 'number', h: 'Modal per pcs untuk stok awal. Pembelian berikutnya dihitung rata-rata dengan angka ini. Kalau dikosongkan, stok awal dihargai sama dengan pembelian pertama.' }],
     cari: (r) => r.Nama, urut: (a, b) => String(a.Nama).localeCompare(String(b.Nama), 'id'),
     baris: (r) => { const s = stokBarang(r.ID); return `<div class="cb"><div class="c1"><span>${esc(r.Nama)}</span><span class="r ${s.stok < 0 ? 'neg' : ''}">${nf(s.stok)} ${esc(r.Satuan || 'pcs')}</span></div><div class="c2">HPP ${s.avg ? n0(Math.round(s.avg)) : '-'}${Number(r.IsiPerDus) ? ' · isi ' + nf(r.IsiPerDus) + ' pcs/dus' : ''}</div></div>`; },
     info: (r) => infoKartuStok(r) },
