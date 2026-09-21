@@ -231,6 +231,7 @@
       <button data-a="lap" data-k="analisa">Analisa Penjualan</button>
       <button data-a="lap" data-k="harian">Rekap Penjualan Harian</button>
       <button data-a="lap" data-k="labajual">Laba Penjualan</button>
+      <button data-a="lap" data-k="operator">Biaya Operator</button>
       <button data-a="lap" data-k="lababersih">Laba Bersih</button>
       <button data-a="lap" data-k="aruskas">Arus Kas</button>
       <button data-a="lap" data-k="nilaistok">Nilai Stok</button>
@@ -414,7 +415,7 @@
 
 <script>
 'use strict';
-const VERSI = '4.8', API_MIN = 7;
+const VERSI = '4.9', API_MIN = 7;
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
 const KAT_ALLIN = 'Harga All-In', KAT_JASA = 'Jasa Sablon Saja';
@@ -1211,7 +1212,7 @@ function hapusForm() {
 }
 
 // ---------- laporan ----------
-const LAP = { summary: 'Summary', analisa: 'Analisa Penjualan', harian: 'Rekap Penjualan Harian', labajual: 'Laba Penjualan', lababersih: 'Laba Bersih', aruskas: 'Arus Kas', nilaistok: 'Nilai Stok', riwayat: 'Riwayat Aktivitas' };
+const LAP = { summary: 'Summary', analisa: 'Analisa Penjualan', harian: 'Rekap Penjualan Harian', labajual: 'Laba Penjualan', operator: 'Biaya Operator', lababersih: 'Laba Bersih', aruskas: 'Arus Kas', nilaistok: 'Nilai Stok', riwayat: 'Riwayat Aktivitas' };
 function bukaLap(k) { LP.k = k; LP.bulan = hariIni().slice(0, 7); $('lp_bulan').value = LP.bulan; $('lp_judul').textContent = LAP[k]; renderLap(); bukaLayar('l_lap'); }
 function dataLap(b) {
   const v = lihat(), dlm = (t) => !b || String(t).slice(0, 7) === b, byr = [];
@@ -1270,6 +1271,23 @@ function renderLap() {
       .forEach((g) => out.push(R(esc(its.find((i) => String(i.Deskripsi).trim().toLowerCase() === g.k).Deskripsi), n0(g.a), '', `${nf(g.b)} pcs terjual`)));
     out.push(JD('PER NOTA'));
     ps.slice().sort(urutNota).forEach((o) => out.push(R(esc(o.Pelanggan), warnaAngka(o.Total - o.Modal), '', `${esc(o.NoInvoice || '')} · ${tglDMY(o.Tanggal)} · total ${n0(o.Total)} − modal ${n0(o.Modal)}`)));
+  } else if (LP.k === 'operator') {
+    // Biaya operator diinput per pcs pada tiap item nota. Biaya ini hanya muncul di laporan, tidak dicetak di nota.
+    const its = []; ps.forEach((o) => o.Items.forEach((it) => its.push({ ...it, nota: o })));
+    const pcs = jml(its, pcsItem), biaya = jml(its, (i) => i.BiayaOperator);
+    out.push(R('Total Biaya Operator', n0(biaya), 'tebal', `${ps.length} nota · ${nf(pcs)} pcs dikerjakan`), R('Rata-rata per pcs', pcs ? nf(biaya / pcs) : '-'));
+    out.push(JD('PER KATEGORI'));
+    [KAT_ALLIN, KAT_JASA].forEach((k) => { const a = its.filter((i) => i.Kategori === k); if (a.length) out.push(R(k, n0(jml(a, (i) => i.BiayaOperator)), '', `${nf(jml(a, pcsItem))} pcs`)); });
+    out.push(JD('PER ITEM'));
+    grup(its, (i) => String(i.Deskripsi).trim().toLowerCase(), (i) => [i.BiayaOperator, pcsItem(i)]).sort((x, y) => y.a - x.a)
+      .forEach((g) => out.push(R(esc(its.find((i) => String(i.Deskripsi).trim().toLowerCase() === g.k).Deskripsi), n0(g.a), '', `${nf(g.b)} pcs · rata-rata ${g.b ? nf(g.a / g.b) : '-'} per pcs`)));
+    out.push(JD('PER HARI'));
+    const hari = {};
+    ps.forEach((o) => { const x = hari[o.Tanggal] || (hari[o.Tanggal] = { n: 0, pcs: 0, b: 0 }); x.n++; x.pcs += jml(o.Items, pcsItem); x.b += jml(o.Items, (i) => i.BiayaOperator); });
+    Object.keys(hari).sort().reverse().forEach((t) => out.push(R(tglDMY(t), n0(hari[t].b), '', `${hari[t].n} nota · ${nf(hari[t].pcs)} pcs`)));
+    out.push(JD('PER NOTA'));
+    ps.slice().sort(urutNota).forEach((o) => out.push(R(esc(o.Pelanggan), n0(jml(o.Items, (i) => i.BiayaOperator)), '', `${esc(o.NoInvoice || '')} · ${tglDMY(o.Tanggal)} · ${nf(jml(o.Items, pcsItem))} pcs`)));
+    if (!ps.length) out.push('<div class="kosong">Belum ada nota pada periode ini.</div>');
   } else if (LP.k === 'lababersih') {
     out.push(R('Penjualan', n0(L.pj)), R('Modal (HPP Barang Terjual)', '− ' + n0(L.modal), '', infoModal), R('Laba Kotor', warnaAngka(L.kotor), 'tebal'), JD('BIAYA OPERASIONAL'),
       R('Biaya Operator Mesin', '− ' + n0(L.op)), R('Bahan Habis Pakai (tinta, film, dll)', '− ' + n0(L.bahan)), ...barisKat(),
