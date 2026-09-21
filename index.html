@@ -259,7 +259,6 @@
         <div class="fl"><label for="u_bayar">Info Pembayaran (tampil di bawah alamat)</label><textarea id="u_bayar" placeholder="mis. Pembayaran Transfer ke&#10;BANK ... 0000000000&#10;An. ..."></textarea></div>
         <div class="fl"><label for="u_kaki">Tulisan Penutup Nota</label><textarea id="u_kaki"></textarea></div>
         <div class="fl"><label for="u_lebar">Lebar Kertas Struk</label><select id="u_lebar"><option value="384">58 mm (paling umum)</option><option value="576">80 mm</option></select></div>
-        <div class="fl"><label for="u_tarif">Biaya Operator Mesin per pcs (Rp)</label><input id="u_tarif" type="number" inputmode="numeric" min="0"></div>
         <div class="fl"><label>Logo (tampil di atas nota)</label>
           <input id="u_logo" type="file" accept="image/*" style="border:0;font-size:15px"></div>
         <img class="logo-pv" id="u_logo_pv" alt="Logo">
@@ -346,6 +345,8 @@
       <div class="fl dua"><div><label for="it_harga">Harga</label><input id="it_harga" type="number" inputmode="numeric" min="0"></div><div><label for="it_disk">Diskon</label><input id="it_disk" inputmode="decimal" placeholder="mis. 10%"></div></div>
       <div class="qty"><div class="fl"><label for="it_jml">Banyaknya</label><input id="it_jml" type="number" inputmode="decimal" min="0"></div><button class="kotak" data-a="qty" data-d="1">+</button><button class="kotak" data-a="qty" data-d="-1">-</button></div>
       <div class="fl"><label for="it_total">Jumlah Harga</label><input id="it_total" readonly value="0"></div>
+      <div class="fl"><label for="it_op">Biaya Operator Mesin per pcs (Rp)</label><input id="it_op" type="number" inputmode="numeric" min="0"></div>
+      <div class="info-stok" id="it_opinfo"></div>
       <div class="fl"><label for="it_cat">Catatan</label><input id="it_cat" autocomplete="off"></div>
     </div>
   </div>
@@ -393,7 +394,6 @@
   <h2>Rincian Nota</h2>
   <div class="fl dua"><div><label for="r_tgl">Tanggal</label><input id="r_tgl" type="date"></div><div><label for="r_jam">Jam</label><input id="r_jam" type="time"></div></div>
   <div class="fl"><label for="r_inv">No. Nota</label><input id="r_inv" readonly></div>
-  <div class="fl"><label for="r_op">Biaya Operator Mesin (Rp)</label><input id="r_op" type="number" inputmode="numeric" min="0"><div class="petunjuk">Otomatis: jumlah pcs × tarif. Kosongkan untuk kembali ke otomatis.</div></div>
   <div class="baris-tombol"><button class="bt putih" id="r_hapus" data-a="hapusNotaDlg">Hapus Nota</button><button class="bt" data-a="rincianOK">OK</button></div>
 </div></dialog>
 
@@ -414,11 +414,12 @@
 
 <script>
 'use strict';
-const VERSI = '4.7', API_MIN = 6;
+const VERSI = '4.8', API_MIN = 7;
+const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
 const KAT_ALLIN = 'Harga All-In', KAT_JASA = 'Jasa Sablon Saja';
 const PCS_PER = { pcs: 1, lusin: 12, kodi: 20 };      // satuan lain dihitung 1 per satuan
-const CFG_DEF = { nama: '', alamat: '', infoBayar: '', kaki: 'Terima kasih', lebar: '384', tarif: '50', logo: '' };
+const CFG_DEF = { nama: '', alamat: '', infoBayar: '', kaki: 'Terima kasih', lebar: '384', logo: '' };
 const BLN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
 // ---------- alat bantu ----------
@@ -527,12 +528,19 @@ function tampilan() {
       .map((it) => ({ ...it, Kategori: normKat(it.Kategori), Jumlah: Number(it.Jumlah) || 0, Harga: Number(it.Harga) || 0, Subtotal: Number(it.Subtotal) || 0, Diskon: it.Diskon == null ? '' : String(it.Diskon) }));
     // nota format lama (1 item di baris nota) ditampilkan sebagai 1 item
     o.Items = its.length ? its : [{ ID: '', Deskripsi: o.Deskripsi, Warna: o.Warna || '', Satuan: 'pcs', Kategori: normKat(o.Jenis), Jumlah: o.Jumlah, Harga: Number(o.HargaSatuan) || 0, Diskon: '', Subtotal: o.Total, Catatan: '' }];
+    // Biaya operator per item. Nota lama (belum punya data per item): biaya nota dibagi rata per pcs ke semua item.
+    const totalPcsO = o.Items.reduce((a, it) => a + pcsItem(it), 0);
+    const adaOp = o.Items.some((it) => it.OperatorPerPcs !== undefined && it.OperatorPerPcs !== null && it.OperatorPerPcs !== '');
+    o.Items.forEach((it) => {
+      if (adaOp) { it.OperatorPerPcs = Number(it.OperatorPerPcs) || 0; it.BiayaOperator = Number(it.BiayaOperator) || Math.round(pcsItem(it) * it.OperatorPerPcs); }
+      else { const rate = totalPcsO > 0 ? o.BiayaOperator / totalPcsO : 0; it.OperatorPerPcs = Math.round(rate * 100) / 100; it.BiayaOperator = Math.round(pcsItem(it) * rate); }
+    });
     const rec = (bayar[o.ID] || []).map((p) => ({ ...p, Jumlah: Number(p.Jumlah) || 0 })).sort((a, b) => String(a.Tanggal).localeCompare(String(b.Tanggal)));
     const lama = o.Dibayar - rec.reduce((a, p) => a + p.Jumlah, 0);     // pembayaran format lama (tanpa catatan)
     if (lama > 0) rec.unshift({ ID: '', PesananID: o.ID, Tanggal: o.Tanggal, Jumlah: lama, Via: '', sintetis: true });
     o.Bayar = rec;
   });
-  L.Barang.forEach((b) => { b.StokAwal = Number(b.StokAwal) || 0; b.HPPAwal = Number(b.HPPAwal) || 0; });
+  L.Barang.forEach((b) => { b.StokAwal = Number(b.StokAwal) || 0; });
   const h = hitungStok(L);
   L.Pesanan.forEach((o) => {
     o.Modal = 0;
@@ -545,23 +553,25 @@ function tampilan() {
 function hitungStok(L) {
   const brg = {}; L.Barang.forEach((b) => { brg[b.ID] = b; });
   const ev = [];
-  L.Barang.forEach((b) => { const q = Number(b.StokAwal) || 0, h = Number(b.HPPAwal) || 0; if (q !== 0 || h) ev.push({ t: '0000-00-00 00:00', o: 0, id: b.ID, qty: q, biaya: q * h, ket: 'Stok awal' }); });
+  L.Barang.forEach((b) => { const q = Number(b.StokAwal) || 0; if (q !== 0) ev.push({ t: '0000-00-00 00:00', o: 0, id: b.ID, qty: q, ket: 'Stok awal' }); });
   L.Belanja.forEach((r) => { if (r.BarangID && brg[r.BarangID]) ev.push({ t: String(r.Tanggal) + ' 00:00', o: 1, id: r.BarangID, qty: Number(r.Jumlah) || 0, biaya: (Number(r.TotalHarga) || 0) + (Number(r.BiayaTravel) || 0), ket: 'Pembelian' + (r.Supplier ? ' · ' + r.Supplier : '') }); });
   L.Pesanan.forEach((o) => o.Items.forEach((it) => { if (it.BarangID && brg[it.BarangID] && it.Kategori === KAT_ALLIN) ev.push({ t: o.Tanggal + ' ' + (o.Jam || '00:00'), o: 2, id: it.BarangID, qty: pcsItem(it), ket: 'Penjualan ' + (o.NoInvoice || '') + ' · ' + o.Pelanggan, key: o.ID + '|' + it.ID }); }));
   ev.sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : a.o - b.o));
+  // HPP hanya dihitung dari pembelian (harga + biaya travel). Stok awal belum diketahui modalnya:
+  // begitu ada pembelian, stok awal dihargai sama dengan pembelian itu.
   const st = {}, kartu = {}, cogs = {};
-  Object.keys(brg).forEach((id) => { st[id] = { stok: 0, nilai: 0, avg: 0, terakhir: 0 }; kartu[id] = []; });
+  Object.keys(brg).forEach((id) => { st[id] = { stok: 0, nilai: 0, avg: 0, terakhir: 0, unk: 0 }; kartu[id] = []; });
   ev.forEach((e) => {
     const s = st[e.id];
-    if (e.o < 2) {
+    if (e.o === 0) { s.stok += e.qty; s.unk = Math.max(0, s.unk + e.qty); }
+    else if (e.o === 1) {
       if (e.qty === 0) return;
       const unit = e.biaya / e.qty;
-      if (s.stok <= 0) { s.stok += e.qty; s.nilai = s.stok > 0 ? s.stok * unit : 0; if (e.qty > 0) s.avg = unit; }
-      else { s.stok += e.qty; s.nilai += e.biaya; s.avg = s.stok > 0 ? s.nilai / s.stok : s.avg; }
-      if (e.o === 1 && e.qty > 0) s.terakhir = unit;
-    } else {
-      const c = e.qty * s.avg; s.stok -= e.qty; s.nilai = s.stok > 0 ? Math.max(0, s.nilai - c) : 0; cogs[e.key] = c;
-    }
+      if (s.stok <= 0) { s.stok += e.qty; s.unk = 0; s.avg = unit; }
+      else { const dikenal = s.stok - s.unk; s.avg = (dikenal * s.avg + s.unk * unit + e.biaya) / (s.stok + e.qty); s.stok += e.qty; s.unk = 0; }
+      if (e.qty > 0) s.terakhir = unit;
+    } else { cogs[e.key] = e.qty * s.avg; s.stok -= e.qty; s.unk = Math.max(0, s.unk - e.qty); }
+    s.nilai = s.stok > 0 ? s.stok * s.avg : 0;
     kartu[e.id].push({ t: e.t, ket: e.ket, qty: e.o < 2 ? e.qty : -e.qty, stok: s.stok, avg: s.avg });
   });
   return { st, kartu, cogs };
@@ -722,21 +732,20 @@ function invAcak() {
 const invFinal = () => (E.inv && !lihat().Pesanan.some((o) => o.NoInvoice === E.inv) ? E.inv : invAcak());
 
 // ---------- editor nota ----------
-const tarif = () => Number(lihat().cfg.tarif) || 0;
 const pcsTotal = (items) => items.reduce((a, it) => a + pcsItem(it), 0);
 const totalItems = (items) => items.reduce((a, it) => a + subItem(it), 0);
-const opEfektif = () => (E.op != null ? E.op : pcsTotal(E.items) * tarif());
+const totalOperator = (items) => items.reduce((a, it) => a + (Number(it.BiayaOperator) || 0), 0);
+const opTerakhir = () => { try { const v = localStorage.getItem(K_OP); return v === null ? 50 : (Number(v) || 0); } catch (e) { return 50; } };
 
 function notaBaru() {
-  E = { id: null, tgl: hariIni(), jam: jamSkrg(), inv: null, nama: 'CASH', alamat: '', hp: '', memo: '', op: null, simpanPel: true, items: [], dirty: false };
+  E = { id: null, tgl: hariIni(), jam: jamSkrg(), inv: null, nama: 'CASH', alamat: '', hp: '', memo: '', simpanPel: true, items: [], dirty: false };
   E.inv = invAcak();
   tampilEditor(); bukaLayar('l_editor');
 }
 function notaEdit(id) {
   const o = notaDari(id); if (!o) return;
   const items = o.Items.map((i) => ({ ...i, ID: i.ID || uid() }));
-  E = { id, tgl: o.Tanggal, jam: o.Jam, inv: o.NoInvoice, nama: o.Pelanggan, alamat: o.Alamat || '', hp: o.NoHP, memo: o.Catatan || '', op: null, simpanPel: false, items, dirty: false };
-  if (o.BiayaOperator !== pcsTotal(items) * tarif()) E.op = o.BiayaOperator;       // nilai manual dipertahankan
+  E = { id, tgl: o.Tanggal, jam: o.Jam, inv: o.NoInvoice, nama: o.Pelanggan, alamat: o.Alamat || '', hp: o.NoHP, memo: o.Catatan || '', simpanPel: false, items, dirty: false };
   tampilEditor(); bukaLayar('l_editor');
 }
 function tampilEditor() {
@@ -745,7 +754,7 @@ function tampilEditor() {
   $('e_items').innerHTML = E.items.length ? E.items.map((it, i) =>
     `<div class="irow" data-a="itemEdit" data-i="${i}"><div class="i1">${esc(it.Deskripsi)}</div>
       <div class="i2"><span>${nf(it.Jumlah)} ${esc(it.Satuan)} &nbsp;x ${n0(it.Harga)}</span><span class="r">${n0(subItem(it))}</span></div>
-      <div class="i3">${tagKat(it.Kategori)}${it.Warna ? 'Warna ' + esc(it.Warna) + ' · ' : ''}${it.Diskon ? 'Diskon ' + esc(it.Diskon) + ' · ' : ''}${esc(it.Catatan || '')}</div></div>`).join('')
+      <div class="i3">${tagKat(it.Kategori)}${it.Warna ? 'Warna ' + esc(it.Warna) + ' · ' : ''}${it.Diskon ? 'Diskon ' + esc(it.Diskon) + ' · ' : ''}Operator ${n0(it.BiayaOperator)}${it.Catatan ? ' · ' + esc(it.Catatan) : ''}</div></div>`).join('')
     : '<div class="kosong">Ketuk + untuk menambah item.</div>';
   $('e_n').textContent = E.items.length; $('e_q').textContent = nf(pcsTotal(E.items)); $('e_sub').textContent = n0(totalItems(E.items));
 }
@@ -767,14 +776,11 @@ function okKepada() {
 }
 // Rincian nota
 function bukaRincian() {
-  $('r_tgl').value = E.tgl; $('r_jam').value = E.jam; $('r_inv').value = E.inv || ''; $('r_op').value = opEfektif();
+  $('r_tgl').value = E.tgl; $('r_jam').value = E.jam; $('r_inv').value = E.inv || '';
   $('r_hapus').style.display = E.id ? '' : 'none'; $('dlgRincian').showModal();
 }
 function okRincian() {
-  const tgl = $('r_tgl').value || E.tgl;
-  E.tgl = tgl; E.jam = $('r_jam').value || E.jam;
-  const v = $('r_op').value.trim();
-  E.op = v === '' ? null : Number(v);
+  E.tgl = $('r_tgl').value || E.tgl; E.jam = $('r_jam').value || E.jam;
   E.dirty = true; $('dlgRincian').close(); tampilEditor();
 }
 
@@ -807,29 +813,34 @@ function isiFormItem(it) {
   $('it_nama').value = it.Deskripsi || ''; $('it_warna').value = it.Warna || ''; $('it_sat').value = it.Satuan || 'pcs';
   $('it_harga').value = it.Harga === undefined || it.Harga === null ? '' : it.Harga; $('it_disk').value = it.Diskon || '';
   $('it_jml').value = it.Jumlah || ''; $('it_cat').value = it.Catatan || '';
+  $('it_op').value = it.OperatorPerPcs === undefined || it.OperatorPerPcs === null || it.OperatorPerPcs === '' ? opTerakhir() : it.OperatorPerPcs;
   segKat(); hitungItem();
 }
 function segKat() { document.querySelectorAll('#it_seg button').forEach((b) => b.classList.toggle('on', b.dataset.k === EI.kat)); }
 function bacaFormItem() {
   return { Deskripsi: $('it_nama').value.trim(), Warna: $('it_warna').value.trim(), Satuan: $('it_sat').value.trim() || 'pcs', Kategori: EI.kat,
-    Jumlah: Number($('it_jml').value) || 0, Harga: Number($('it_harga').value) || 0, Diskon: $('it_disk').value.trim(), Catatan: $('it_cat').value.trim(), BarangID: EI.barangId || '' };
+    Jumlah: Number($('it_jml').value) || 0, Harga: Number($('it_harga').value) || 0, Diskon: $('it_disk').value.trim(), Catatan: $('it_cat').value.trim(), BarangID: EI.barangId || '',
+    OperatorPerPcs: Number($('it_op').value) || 0 };
 }
-function hitungItem() { $('it_total').value = n0(subItem(bacaFormItem())); infoStokItem(); }
-function autoBarang() {
+function hitungItem() {
+  const f = bacaFormItem();
+  $('it_total').value = n0(subItem(f));
+  $('it_opinfo').textContent = f.Jumlah > 0 ? `Biaya operator item ini: ${nf(pcsItem(f))} pcs × ${n0(f.OperatorPerPcs)} = ${n0(Math.round(pcsItem(f) * f.OperatorPerPcs))}` : '';
+  infoStokItem();
+}
+function autoBarang() {                  // harga tidak diisi otomatis: harga dimasukkan saat membuat nota
   const b = cocokBarang($('it_nama').value); EI.barangId = b ? b.ID : '';
-  if (b) {
-    if (b.Satuan) $('it_sat').value = b.Satuan;
-    if (EI.hargaAuto) { const h = Number(EI.kat === KAT_JASA ? b.HargaJasa : b.HargaAllIn) || 0; if (h > 0) $('it_harga').value = h; }
-  }
+  if (b && b.Satuan) $('it_sat').value = b.Satuan;
   hitungItem();
 }
-function itemBaru() { EI = { idx: -1, hargaAuto: true, kat: KAT_ALLIN, barangId: '' }; $('it_judul').textContent = 'Tambah Item'; $('it_hapus').style.display = 'none'; isiFormItem({ Kategori: KAT_ALLIN, Satuan: 'pcs' }); bukaLayar('l_itemform'); setTimeout(() => $('it_nama').focus(), 60); }
-function itemEdit(i) { EI = { idx: i, hargaAuto: false, kat: E.items[i].Kategori, barangId: E.items[i].BarangID || '' }; $('it_judul').textContent = 'Ubah Item'; $('it_hapus').style.display = ''; isiFormItem(E.items[i]); bukaLayar('l_itemform'); }
+function itemBaru() { EI = { idx: -1, kat: KAT_ALLIN, barangId: '' }; $('it_judul').textContent = 'Tambah Item'; $('it_hapus').style.display = 'none'; isiFormItem({ Kategori: KAT_ALLIN, Satuan: 'pcs' }); bukaLayar('l_itemform'); setTimeout(() => $('it_nama').focus(), 60); }
+function itemEdit(i) { EI = { idx: i, kat: E.items[i].Kategori, barangId: E.items[i].BarangID || '' }; $('it_judul').textContent = 'Ubah Item'; $('it_hapus').style.display = ''; isiFormItem(E.items[i]); bukaLayar('l_itemform'); }
 function okItem() {
   const f = bacaFormItem();
   if (!f.Deskripsi) { pesan('Isi nama item.'); return; }
   if (f.Jumlah <= 0) { pesan('Isi banyaknya.'); return; }
-  f.Subtotal = subItem(f);
+  f.Subtotal = subItem(f); f.BiayaOperator = Math.round(pcsItem(f) * f.OperatorPerPcs);
+  try { localStorage.setItem(K_OP, String(f.OperatorPerPcs)); } catch (e) {}
   if (EI.idx >= 0) { f.ID = E.items[EI.idx].ID; E.items[EI.idx] = f; } else { f.ID = uid(); E.items.push(f); }
   E.dirty = true; tutupLayar(); tampilEditor();
 }
@@ -843,12 +854,12 @@ function renderPilih() {
   const arr = src.filter((r) => !q || (r.Nama + ' ' + (r.Alamat || '')).toLowerCase().indexOf(q) >= 0).sort((a, b) => String(a.Nama).localeCompare(String(b.Nama), 'id'));
   $('pl_list').innerHTML = arr.length ? arr.map((r) => pilihJenis === 'pelanggan'
     ? `<div class="crow" data-a="pilihItem" data-id="${r.ID}"><div class="av">${esc(ini(r.Nama))}</div><div class="cb"><div class="c1"><span>${esc(r.Nama)}</span></div><div class="c2">${esc(r.Alamat || '')}${r.NoHP ? ' · ' + esc(r.NoHP) : ''}</div></div></div>`
-    : `<div class="crow" data-a="pilihItem" data-id="${r.ID}"><div class="cb"><div class="c1"><span>${esc(r.Nama)}</span></div><div class="c2">${esc(r.Satuan || 'pcs')} · All-In ${r.HargaAllIn ? n0(r.HargaAllIn) : '-'} · Jasa ${r.HargaJasa ? n0(r.HargaJasa) : '-'}</div></div></div>`).join('')
+    : `<div class="crow" data-a="pilihItem" data-id="${r.ID}"><div class="cb"><div class="c1"><span>${esc(r.Nama)}</span></div><div class="c2">${esc(r.Satuan || 'pcs')} · stok ${nf(stokBarang(r.ID).stok)}</div></div></div>`).join('')
     : '<div class="kosong">Belum ada data.</div>';
 }
 function pilihItem(id) {
   if (pilihJenis === 'pelanggan') { const p = lihat().Pelanggan.find((x) => x.ID === id); if (p) { $('k_nama').value = p.Nama; $('k_alamat').value = p.Alamat || ''; $('k_hp').value = String(p.NoHP || ''); $('k_simpan').checked = true; } }
-  else { const b = lihat().Barang.find((x) => x.ID === id); if (b) { $('it_nama').value = b.Nama; EI.hargaAuto = true; autoBarang(); } }
+  else { const b = lihat().Barang.find((x) => x.ID === id); if (b) { $('it_nama').value = b.Nama; autoBarang(); } }
   $('dlgPilih').close();
 }
 
@@ -858,12 +869,12 @@ function simpanNota() {
   if (E.id && !E.dirty) { const id = E.id; E = null; gantiLayar('l_editor', 'l_preview'); tampilPreview(id); return; }
   const nama = (E.nama || '').trim() || 'CASH';
   const id = E.id || uid();
-  const its = E.items.map((it, i) => ({ ID: it.ID || uid(), Deskripsi: it.Deskripsi, Warna: it.Warna || '', Satuan: it.Satuan, Kategori: it.Kategori, Jumlah: it.Jumlah, Harga: it.Harga, Diskon: String(it.Diskon || ''), Subtotal: subItem(it), Catatan: it.Catatan || '', BarangID: it.BarangID || '', PesananID: id, Urut: i + 1 }));
+  const its = E.items.map((it, i) => ({ ID: it.ID || uid(), Deskripsi: it.Deskripsi, Warna: it.Warna || '', Satuan: it.Satuan, Kategori: it.Kategori, Jumlah: it.Jumlah, Harga: it.Harga, Diskon: String(it.Diskon || ''), Subtotal: subItem(it), Catatan: it.Catatan || '', BarangID: it.BarangID || '', OperatorPerPcs: Number(it.OperatorPerPcs) || 0, BiayaOperator: Number(it.BiayaOperator) || 0, PesananID: id, Urut: i + 1 }));
   const kurangStok = cekStok(its);
   if (kurangStok.length && !confirm('Stok tidak cukup:\n' + kurangStok.join('\n') + '\n\nTetap simpan nota ini?')) return;
   const kat = Array.from(new Set(its.map((i) => i.Kategori)));
   const base = { Tanggal: E.tgl, Jam: E.jam, Pelanggan: nama, Alamat: E.alamat, NoHP: E.hp, Jenis: kat.length === 1 ? kat[0] : 'Campuran',
-    Deskripsi: its.map((i) => `${i.Deskripsi} (${nf(i.Jumlah)} ${i.Satuan})`).join(', '), Jumlah: pcsTotal(its), Total: totalItems(its), BiayaOperator: opEfektif(), Catatan: E.memo.trim() };
+    Deskripsi: its.map((i) => `${i.Deskripsi} (${nf(i.Jumlah)} ${i.Satuan})`).join(', '), Jumlah: pcsTotal(its), Total: totalItems(its), BiayaOperator: totalOperator(its), Catatan: E.memo.trim() };
   if (E.simpanPel && nama.toUpperCase() !== 'CASH') {
     const p = lihat().Pelanggan.find((x) => String(x.Nama).trim().toLowerCase() === nama.toLowerCase());
     if (!p) antre({ op: 'add', sheet: 'Pelanggan', row: { ID: uid(), Nama: nama, Alamat: E.alamat, NoHP: E.hp } });
@@ -1038,8 +1049,7 @@ async function hapusNota(id) {
 function salinNota(id) {
   const o = notaDari(id); if (!o) return;
   const items = o.Items.map((i) => ({ ...i, ID: uid() }));
-  E = { id: null, tgl: hariIni(), jam: jamSkrg(), inv: invAcak(), nama: o.Pelanggan, alamat: o.Alamat || '', hp: o.NoHP, memo: o.Catatan || '', op: null, simpanPel: false, items, dirty: true };
-  if (o.BiayaOperator !== pcsTotal(items) * tarif()) E.op = o.BiayaOperator;
+  E = { id: null, tgl: hariIni(), jam: jamSkrg(), inv: invAcak(), nama: o.Pelanggan, alamat: o.Alamat || '', hp: o.NoHP, memo: o.Catatan || '', simpanPel: false, items, dirty: true };
   tampilEditor(); bukaLayar('l_editor'); pesan('Nota disalin. Periksa lalu simpan.', 3500);
 }
 
@@ -1067,12 +1077,9 @@ const CRUD = {
   barang: { sheet: 'Barang', judul: 'Item', tambah: 'Tambah Item', ubah: 'Ubah Item', tgl: false, unik: 'Nama',
     f: [{ k: 'Nama', l: 'Nama Item', w: 1 }, { k: 'Satuan', l: 'Satuan', def: 'pcs', h: 'Satuan dasar stok. Disarankan pcs.' },
       { k: 'IsiPerDus', l: 'Isi per Dus (pcs)', t: 'number', h: 'Contoh: 500, 1000, atau 2000. Terisi otomatis saat membeli item ini, dan bisa diubah di tiap pembelian.' },
-      { k: 'HargaAllIn', l: 'Harga Jual All-In per Satuan (Rp)', t: 'number', h: 'Harga gelas + sablon. Boleh dikosongkan.' },
-      { k: 'HargaJasa', l: 'Harga Jual Jasa Sablon Saja per Satuan (Rp)', t: 'number', h: 'Untuk pelanggan yang membawa gelas sendiri. Boleh dikosongkan.' },
-      { k: 'StokAwal', l: 'Stok Awal (pcs)', t: 'number', h: 'Stok yang ada sekarang, sebelum pembelian dicatat di aplikasi ini. Stok saat ini = stok awal + pembelian − penjualan.' },
-      { k: 'HPPAwal', l: 'HPP Awal per pcs (Rp)', t: 'number', h: 'Modal per pcs untuk stok awal. Boleh dikosongkan.' }],
+      { k: 'StokAwal', l: 'Stok Awal (pcs)', t: 'number', h: 'Stok yang ada sekarang, sebelum pembelian dicatat di aplikasi ini. Stok saat ini = stok awal + pembelian − penjualan. HPP dihitung dari pembelian.' }],
     cari: (r) => r.Nama, urut: (a, b) => String(a.Nama).localeCompare(String(b.Nama), 'id'),
-    baris: (r) => { const s = stokBarang(r.ID); return `<div class="cb"><div class="c1"><span>${esc(r.Nama)}</span><span class="r ${s.stok < 0 ? 'neg' : ''}">${nf(s.stok)} ${esc(r.Satuan || 'pcs')}</span></div><div class="c2">HPP ${s.avg ? n0(Math.round(s.avg)) : '-'} · All-In ${r.HargaAllIn ? n0(r.HargaAllIn) : '-'} · Jasa ${r.HargaJasa ? n0(r.HargaJasa) : '-'}</div></div>`; },
+    baris: (r) => { const s = stokBarang(r.ID); return `<div class="cb"><div class="c1"><span>${esc(r.Nama)}</span><span class="r ${s.stok < 0 ? 'neg' : ''}">${nf(s.stok)} ${esc(r.Satuan || 'pcs')}</span></div><div class="c2">HPP ${s.avg ? n0(Math.round(s.avg)) : '-'}${Number(r.IsiPerDus) ? ' · isi ' + nf(r.IsiPerDus) + ' pcs/dus' : ''}</div></div>`; },
     info: (r) => infoKartuStok(r) },
   pembelian: { sheet: 'Belanja', judul: 'Pembelian', tambah: 'Tambah Pembelian', ubah: 'Ubah Pembelian', tgl: true,
     f: [{ k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' },
@@ -1300,11 +1307,11 @@ function renderLap() {
 function isiSetting() {
   const c = lihat().cfg;
   $('c_url').value = S.cfg.url || ''; $('c_token').value = S.cfg.token || '';
-  $('u_nama').value = c.nama; $('u_alamat').value = c.alamat; $('u_bayar').value = c.infoBayar; $('u_kaki').value = c.kaki; $('u_lebar').value = c.lebar; $('u_tarif').value = c.tarif;
+  $('u_nama').value = c.nama; $('u_alamat').value = c.alamat; $('u_bayar').value = c.infoBayar; $('u_kaki').value = c.kaki; $('u_lebar').value = c.lebar;
   const pv = $('u_logo_pv'); pv.style.display = c.logo ? 'block' : 'none'; if (c.logo) pv.src = c.logo; $('u_logo_hapus').style.display = c.logo ? '' : 'none';
 }
 function simpanUsaha() {
-  const kv = { nama: $('u_nama').value.trim(), alamat: $('u_alamat').value.trim(), infoBayar: $('u_bayar').value.trim(), kaki: $('u_kaki').value.trim(), lebar: $('u_lebar').value, tarif: String(Number($('u_tarif').value) || 0) };
+  const kv = { nama: $('u_nama').value.trim(), alamat: $('u_alamat').value.trim(), infoBayar: $('u_bayar').value.trim(), kaki: $('u_kaki').value.trim(), lebar: $('u_lebar').value };
   const c = lihat().cfg;
   Object.keys(kv).forEach((k) => { if (String(c[k]) !== String(kv[k])) antre({ op: 'setel', key: k, value: kv[k] }); });
   pesan('Data usaha tersimpan', 2500);
@@ -1362,7 +1369,7 @@ const ACT = {
   simpanNota: () => simpanNota(),
   itemBaru: () => itemBaru(), itemEdit: (el) => itemEdit(Number(el.dataset.i)), itemOK: () => okItem(), itemHapus: () => hapusItem(), pilihBrg: () => bukaPilih('barang'),
   pilihItem: (el) => pilihItem(el.dataset.id),
-  katPilih: (el) => { EI.kat = el.dataset.k; segKat(); if (EI.hargaAuto) autoBarang(); hitungItem(); },
+  katPilih: (el) => { EI.kat = el.dataset.k; segKat(); hitungItem(); },
   qty: (el) => { const v = Math.max(0, (Number($('it_jml').value) || 0) + Number(el.dataset.d)); $('it_jml').value = v; hitungItem(); },
   wa: (el) => bukaWA($(el.dataset.src).value),
   pvBayar: () => bukaBayar(), pvBagikan: () => bagikanNota(), pvCetak: () => cetakNota(),
@@ -1437,8 +1444,8 @@ $('cl_bulan').addEventListener('change', () => { $('cl_list').innerHTML = daftar
 $('pl_cari').addEventListener('input', renderPilih);
 $('e_memo').addEventListener('input', () => { if (E) { E.memo = $('e_memo').value; E.dirty = true; } });
 $('k_nama').addEventListener('input', autoPelanggan);
-['it_jml', 'it_harga', 'it_disk'].forEach((id) => $(id).addEventListener('input', () => { if (id === 'it_harga') EI.hargaAuto = false; hitungItem(); }));
-$('it_nama').addEventListener('input', () => { EI.hargaAuto = EI.hargaAuto || EI.idx < 0; autoBarang(); });
+['it_jml', 'it_harga', 'it_disk', 'it_op'].forEach((id) => $(id).addEventListener('input', hitungItem));
+$('it_nama').addEventListener('input', autoBarang);
 $('it_nama').addEventListener('change', autoBarang);
 $('lp_bulan').addEventListener('change', () => { LP.bulan = $('lp_bulan').value; renderLap(); });
 $('pv_kertas').addEventListener('change', () => { antre({ op: 'setel', key: 'lebar', value: $('pv_kertas').value }); bukaPreviewIsi(); });
