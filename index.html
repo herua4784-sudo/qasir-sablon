@@ -415,7 +415,8 @@
 
 <script>
 'use strict';
-const VERSI = '4.10', API_MIN = 7;
+const VERSI = '4.11', API_MIN = 8;
+const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
 const KAT_ALLIN = 'Harga All-In', KAT_JASA = 'Jasa Sablon Saja';
@@ -478,7 +479,7 @@ function pasangIkon() { document.querySelectorAll('i[data-ic]').forEach((el) => 
 // ---------- data & penyimpanan ----------
 // S.snap  = salinan terakhir data dari Google Sheets
 // S.queue = aksi yang belum terkirim (nota baru, pembayaran, pelanggan, dst.)
-let S = { snap: { Pesanan: [], Item: [], Pembayaran: [], Pelanggan: [], Barang: [], Belanja: [], Pengeluaran: [], Setelan: [] }, queue: [], cfg: { url: '', token: '' }, lastSync: null };
+let S = { snap: { Pesanan: [], Item: [], Pembayaran: [], Pelanggan: [], Barang: [], Belanja: [], Pengeluaran: [], Setelan: [] }, queue: [], cfg: { url: '', token: '' }, lastSync: null, versi: 0 };
 let sedang = false, galatSinkron = '', apiOk = false, _V = null;
 let F = { bulan: '', status: 'semua' };                 // filter daftar nota
 let E = null, EI = null;                                // nota yang sedang diedit, item yang sedang diedit
@@ -486,16 +487,38 @@ let notaAktifId = null, notaUrl = null, notaFile = null, logoImg = null, logoSrc
 let crudAktif = null, crudEditId = null, pilihJenis = '';
 let LP = { k: 'summary', bulan: '' };
 
-function muatLokal() {
+// Salinan data (bisa besar) disimpan di IndexedDB dan hanya setelah sinkron. Antrean (kecil) disimpan seketika di localStorage.
+const IDB = {
+  db: null,
+  buka() { return new Promise((res) => { try { const r = indexedDB.open('qasir-sablon', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => { IDB.db = r.result; res(true); }; r.onerror = () => res(false); r.onblocked = () => res(false); } catch (e) { res(false); } }); },
+  ambil(k) { return new Promise((res) => { if (!IDB.db) return res(undefined); try { const q = IDB.db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(undefined); } catch (e) { res(undefined); } }); },
+  simpan(k, v) { return new Promise((res) => { if (!IDB.db) return res(false); try { const t = IDB.db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => res(true); t.onerror = () => res(false); t.onabort = () => res(false); } catch (e) { res(false); } }); }
+};
+async function muatLokal() {
   try {
-    const d = JSON.parse(localStorage.getItem(K_DATA) || 'null');
-    if (d) { S.snap = { ...S.snap, ...(d.snap || {}) }; S.queue = d.queue || []; S.lastSync = d.lastSync || null; }
+    await IDB.buka();
+    let sn = await IDB.ambil('snap'), antre = null, pindah = false;
+    if (!sn) { try { sn = JSON.parse(localStorage.getItem(K_SNAP) || 'null'); } catch (e) {} }   // cadangan bila IndexedDB tidak tersedia
+    try { antre = JSON.parse(localStorage.getItem(K_ANTRE) || 'null'); } catch (e) {}
+    if (!sn || antre === null) {                     // pindahan dari versi lama (satu kunci berisi salinan data + antrean)
+      let lama = null; try { lama = JSON.parse(localStorage.getItem(K_DATA) || 'null'); } catch (e) {}
+      if (lama) { if (!sn) sn = { snap: lama.snap, lastSync: lama.lastSync, versi: 0 }; if (antre === null) antre = lama.queue || []; pindah = true; }
+    }
+    if (sn) { S.snap = { ...S.snap, ...(sn.snap || {}) }; S.lastSync = sn.lastSync || null; S.versi = sn.versi || 0; }
+    S.queue = antre || [];
     const c = JSON.parse(localStorage.getItem(K_CFG) || 'null'); if (c) S.cfg = c;
+    if (pindah) { simpanAntrean(); await simpanSnap(); try { localStorage.removeItem(K_DATA); } catch (e) {} }
   } catch (e) {}
 }
-function simpanLokal() {
-  try { localStorage.setItem(K_DATA, JSON.stringify({ snap: S.snap, queue: S.queue, lastSync: S.lastSync })); }
+function simpanAntrean() {
+  try { localStorage.setItem(K_ANTRE, JSON.stringify(S.queue)); }
   catch (e) { pesan('Penyimpanan HP penuh atau diblokir. Data mungkin tidak tersimpan!', 6000); }
+}
+async function simpanSnap() {
+  const nilai = { snap: S.snap, lastSync: S.lastSync, versi: S.versi };
+  if (await IDB.simpan('snap', nilai)) return;
+  try { localStorage.setItem(K_SNAP, JSON.stringify(nilai)); }
+  catch (e) { pesan('Penyimpanan HP penuh atau diblokir. Salinan data belum tersimpan di HP.', 6000); }
 }
 function pesan(t, ms) { const m = $('msg'); m.textContent = t; m.style.display = 'block'; clearTimeout(pesan.t); pesan.t = setTimeout(() => { m.style.display = 'none'; }, ms || 2600); }
 
@@ -507,24 +530,28 @@ function tampilan() {
   (s.Item || []).forEach((it) => { (items[it.PesananID] = items[it.PesananID] || []).push({ ...it }); });
   (s.Pembayaran || []).forEach((p) => { (bayar[p.PesananID] = bayar[p.PesananID] || []).push({ ...p }); });
   (s.Setelan || []).forEach((r) => { cfg[r.Kunci] = String(r.Nilai == null ? '' : r.Nilai); });
-  const cari = (l, id) => l.find((x) => x.ID === id);
+  // Indeks ID dibuat hanya bila ada antrean (pencarian O(1), bukan menelusuri seluruh daftar tiap aksi).
+  const mapDari = new Map();
+  const cari = (l, id) => { let m = mapDari.get(l); if (!m) { m = new Map(l.map((x) => [x.ID, x])); mapDari.set(l, m); } return m.get(id); };
+  const tambahKe = (l, obj) => { l.push(obj); const m = mapDari.get(l); if (m) m.set(obj.ID, obj); };
   S.queue.forEach((op) => {
     switch (op.op) {
-      case 'addPesanan': if (!cari(L.Pesanan, op.row.ID)) { L.Pesanan.push({ ...op.row, _tunda: true }); items[op.row.ID] = (op.items || []).map((x) => ({ ...x })); } break;
+      case 'addPesanan': if (!cari(L.Pesanan, op.row.ID)) { tambahKe(L.Pesanan, { ...op.row, _tunda: true }); items[op.row.ID] = (op.items || []).map((x) => ({ ...x })); } break;
       case 'ubahPesanan': { const o = cari(L.Pesanan, op.id); if (o) { Object.assign(o, op.row, { _tunda: true }); items[op.id] = (op.items || []).map((x) => ({ ...x })); } break; }
       case 'addBayar': { const o = cari(L.Pesanan, op.row.PesananID); if (o) { const a = (bayar[o.ID] = bayar[o.ID] || []); if (!a.some((p) => p.ID === op.row.ID)) a.push({ ...op.row, _tunda: true }); o.Dibayar = op.dibayar; o._tunda = true; } break; }
       case 'hapusBayar': { const o = cari(L.Pesanan, op.pesananId); if (o) { bayar[o.ID] = (bayar[o.ID] || []).filter((p) => p.ID !== op.id); o.Dibayar = op.dibayar; o._tunda = true; } break; }
       case 'bayar': { const o = cari(L.Pesanan, op.id); if (o) { o.Dibayar = op.dibayar; o._tunda = true; } break; }
       case 'lunasi': { const o = cari(L.Pesanan, op.id); if (o) { o.Dibayar = o.Total; o._tunda = true; } break; }
-      case 'add': { const l = L[op.sheet]; if (l && !cari(l, op.row.ID)) l.push({ ...op.row, _tunda: true }); break; }
+      case 'add': { const l = L[op.sheet]; if (l && !cari(l, op.row.ID)) tambahKe(l, { ...op.row, _tunda: true }); break; }
       case 'ubah': { const l = L[op.sheet], r = l && cari(l, op.id); if (r) Object.assign(r, op.row, { _tunda: true }); break; }
-      case 'hapus': { const l = L[op.sheet]; if (l) { const i = l.findIndex((x) => x.ID === op.id); if (i >= 0) l.splice(i, 1); } break; }
+      case 'hapus': { const l = L[op.sheet]; if (l) { const i = l.findIndex((x) => x.ID === op.id); if (i >= 0) { const [h] = l.splice(i, 1); const m = mapDari.get(l); if (m) m.delete(h.ID); } } break; }
       case 'setel': cfg[op.key] = String(op.value == null ? '' : op.value); break;
     }
   });
   L.Pesanan.forEach((o) => {
     ['Jumlah', 'Total', 'BiayaOperator', 'Dibayar'].forEach((k) => { o[k] = Number(o[k]) || 0; });
     o.NoHP = String(o.NoHP || ''); o.Jam = /^\d{1,2}:\d{2}/.test(String(o.Jam || '')) ? String(o.Jam).slice(0, 5) : '';
+    o._k = o.Tanggal + ' ' + o.Jam + ' ' + o.ID;      // kunci urut (terbaru di atas), dihitung sekali
     const its = (items[o.ID] || []).sort((a, b) => (Number(a.Urut) || 0) - (Number(b.Urut) || 0))
       .map((it) => ({ ...it, Kategori: normKat(it.Kategori), Jumlah: Number(it.Jumlah) || 0, Harga: Number(it.Harga) || 0, Subtotal: Number(it.Subtotal) || 0, Diskon: it.Diskon == null ? '' : String(it.Diskon) }));
     // nota format lama (1 item di baris nota) ditampilkan sebagai 1 item
@@ -582,7 +609,7 @@ function hitungStok(L) {
 }
 function lihat() { return _V || (_V = tampilan()); }
 // Terbaru di atas. Nota di menit yang sama diurutkan menurut urutan pembuatannya (ID), bukan nomor invoice yang acak.
-const urutNota = (a, b) => (b.Tanggal + ' ' + b.Jam).localeCompare(a.Tanggal + ' ' + a.Jam) || String(b.ID).localeCompare(String(a.ID));
+const urutNota = (a, b) => (a._k < b._k ? 1 : a._k > b._k ? -1 : 0);
 const notaDari = (id) => lihat().Pesanan.find((x) => x.ID === id);
 
 // ---------- navigasi layar ----------
@@ -607,7 +634,7 @@ function bukaTab(n) {
   document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x.id === 't_' + n));
   document.querySelectorAll('#nav button').forEach((x) => x.classList.toggle('on', x.dataset.t === n));
   if (n === 'setting') isiSetting();
-  render();
+  renderTampil();
 }
 function popup(items) {
   const p = $('popup');
@@ -642,24 +669,47 @@ function rowNota(o) {
       <div class="l2">${esc(waktu(o))}</div>
       <div class="l3">${lunas ? 'Lunas' : 'Sisa <b>' + n0(sisa) + '</b>'} dari total <b>${n0(o.Total)}</b></div></div></div>`;
 }
+// Daftar nota dimuat bertahap (60 baris, lalu 60 lagi saat digulir) supaya tetap ringan walau notanya ribuan.
+const HALAMAN_NOTA = 60;
+let notaHasil = [], notaTampil = 0, sigDatalist = '', renderTertunda = false;
+const kotor = { nota: true, item: true, list: true, setting: true };
+const htmlLagi = () => '<div class="kosong" id="n_lagi">Gulir ke bawah untuk memuat nota lainnya…</div>';
 function renderNota(v) {
-  const list = saringNota(v);
+  notaHasil = saringNota(v);
+  notaTampil = Math.min(notaHasil.length, Math.max(HALAMAN_NOTA, notaTampil));    // pertahankan jumlah baris yang sudah dimuat
   $('n_sub').textContent = subJudul();
-  $('n_list').innerHTML = list.length ? list.map(rowNota).join('') : '<div class="kosong">Belum ada nota. Ketuk + untuk membuat nota baru.</div>';
+  $('n_list').innerHTML = notaHasil.length ? notaHasil.slice(0, notaTampil).map(rowNota).join('') + (notaTampil < notaHasil.length ? htmlLagi() : '') : '<div class="kosong">Belum ada nota. Ketuk + untuk membuat nota baru.</div>';
   if (aksiId) { const r = document.querySelector(`.nrow[data-id="${aksiId}"]`); if (r) r.classList.add('terpilih'); else tutupAksi(); }
-  $('n_ringkas').textContent = `Total ${n0(jml(list, (o) => o.Total))} dari ${list.length} nota. Sisa ${n0(jml(list, (o) => Math.max(o.Total - o.Dibayar, 0)))}.`;
+  $('n_ringkas').textContent = `Total ${n0(jml(notaHasil, (o) => o.Total))} dari ${notaHasil.length} nota. Sisa ${n0(jml(notaHasil, (o) => Math.max(o.Total - o.Dibayar, 0)))}.`;
 }
-function render() {
-  const v = lihat();
-  renderNota(v);
+function muatLagiNota() {
+  if (notaTampil >= notaHasil.length) return;
+  const dari = notaTampil, el = $('n_lagi'); notaTampil = Math.min(notaHasil.length, notaTampil + HALAMAN_NOTA);
+  if (el) el.remove();
+  $('n_list').insertAdjacentHTML('beforeend', notaHasil.slice(dari, notaTampil).map(rowNota).join('') + (notaTampil < notaHasil.length ? htmlLagi() : ''));
+}
+function renderItemTab(v) {
   $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null);
   $('ci_ringkas').textContent = `Nilai stok ${n0(Math.round(jml(Object.keys(v.stok), (k) => v.stok[k].nilai)))} dari ${v.Barang.length} item.`;
-  if ($('l_list').classList.contains('on')) $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan'));
-  if (!$('t_setting').classList.contains('on')) isiSetting();
-  $('dl_pel').innerHTML = v.Pelanggan.map((p) => `<option value="${esc(p.Nama)}"></option>`).join('');
-  $('dl_brg').innerHTML = v.Barang.map((b) => `<option value="${esc(b.Nama)}"></option>`).join('');
+}
+// render(): data berubah. Hanya bagian yang sedang tampil yang digambar ulang; sisanya digambar saat dibuka.
+function render() { kotor.nota = kotor.item = kotor.list = kotor.setting = true; renderTampil(); }
+function renderTampil() {
+  const v = lihat(), aktif = (id) => $(id).classList.contains('on');
+  if (aktif('t_nota') && kotor.nota) { renderNota(v); kotor.nota = false; }
+  if (aktif('t_item') && kotor.item) { renderItemTab(v); kotor.item = false; }
+  if (aktif('l_list') && kotor.list) { $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan')); kotor.list = false; }
+  if (!aktif('t_setting') && kotor.setting) { isiSetting(); kotor.setting = false; }
+  const sig = v.Pelanggan.map((p) => p.Nama).join('\n') + '\u0001' + v.Barang.map((b) => b.Nama).join('\n');
+  if (sig !== sigDatalist) {
+    sigDatalist = sig;
+    $('dl_pel').innerHTML = v.Pelanggan.map((p) => `<option value="${esc(p.Nama)}"></option>`).join('');
+    $('dl_brg').innerHTML = v.Barang.map((b) => `<option value="${esc(b.Nama)}"></option>`).join('');
+  }
   statusBar();
 }
+// Beberapa perubahan berturut-turut digabung menjadi satu kali menggambar ulang.
+function jadwalRender() { if (renderTertunda) return; renderTertunda = true; Promise.resolve().then(() => { renderTertunda = false; render(); }); }
 function statusBar() {
   const n = S.queue.length, ada = S.cfg.url && S.cfg.token;
   let cls = '', txt = '', penuh = '';
@@ -697,22 +747,28 @@ async function pastikanApi() {
   catch (e) { if (/Aksi tidak dikenal/.test(e.message)) apiOk = false; else throw e; }
   if (!apiOk) throw new Error('Apps Script belum diperbarui. Tempel Code_Penerima.gs terbaru lalu Deploy versi baru');
 }
-async function sinkron() {
+const PESAN_LAMA = 'Apps Script belum diperbarui. Tempel Code_Penerima.gs terbaru lalu Deploy versi baru';
+let perluPenuh = true;      // setiap sesi baru: ambil data penuh sekali (menangkap perubahan yang dibuat langsung di Google Sheet)
+// Kirim antrean dan ambil data dalam SATU permintaan. Data penuh hanya diminta bila ada perubahan / versi berbeda / dipaksa.
+async function sinkron(paksa) {
   if (sedang || !navigator.onLine || !S.cfg.url || !S.cfg.token) { statusBar(); return; }
   sedang = true; galatSinkron = ''; statusBar();
   try {
-    await pastikanApi();
-    while (S.queue.length) {
-      const batch = S.queue.slice(0, 25);
-      await panggil({ action: 'sync', ops: batch });
-      const ids = new Set(batch.map((o) => o.opId));
-      S.queue = S.queue.filter((o) => !ids.has(o.opId)); _V = null; simpanLokal();
-    }
-    const r = await panggil({ action: 'data' });
-    const d = r.data || {};
-    S.snap = { Pesanan: d.Pesanan || [], Item: d.Item || [], Pembayaran: d.Pembayaran || [], Pelanggan: d.Pelanggan || [], Barang: d.Barang || [], Belanja: d.Belanja || [], Pengeluaran: d.Pengeluaran || [], Setelan: d.Setelan || [] };
-    S.lastSync = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); _V = null;
-    simpanLokal();
+    let hasil = null, dataTerbaru = null;
+    do {
+      const batch = S.queue.slice(0, 25), terakhir = S.queue.length <= 25;
+      try { hasil = await panggil({ action: 'sinkron', api: API_MIN, ops: batch, versi: S.versi, tanpaData: !terakhir, paksa: paksa === true || perluPenuh }); }
+      catch (e) { if (/Aksi tidak dikenal/.test(e.message)) throw new Error(PESAN_LAMA); throw e; }
+      if (batch.length) { const ids = new Set(batch.map((o) => o.opId)); S.queue = S.queue.filter((o) => !ids.has(o.opId)); _V = null; simpanAntrean(); }
+      if (hasil.data) dataTerbaru = hasil;
+    } while (S.queue.length);
+    if (dataTerbaru) {
+      const d = dataTerbaru.data;
+      S.snap = { Pesanan: d.Pesanan || [], Item: d.Item || [], Pembayaran: d.Pembayaran || [], Pelanggan: d.Pelanggan || [], Barang: d.Barang || [], Belanja: d.Belanja || [], Pengeluaran: d.Pengeluaran || [], Setelan: d.Setelan || [] };
+      S.versi = dataTerbaru.versi; perluPenuh = false; _V = null;
+    } else if (hasil && hasil.versi !== undefined) S.versi = hasil.versi;
+    S.lastSync = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    if (dataTerbaru) simpanSnap();
   } catch (e) { galatSinkron = pesanGalat(e); }
   finally {
     sedang = false; render();
@@ -720,7 +776,7 @@ async function sinkron() {
     if (!galatSinkron && S.queue.length && navigator.onLine) setTimeout(sinkron, 250);
   }
 }
-function antre(op) { op.opId = uid(); S.queue.push(op); _V = null; simpanLokal(); render(); sinkron(); }
+function antre(op) { op.opId = uid(); S.queue.push(op); _V = null; simpanAntrean(); jadwalRender(); sinkron(); }
 
 // ---------- invoice otomatis ----------
 // Nomor invoice acak (bukan berurutan) supaya pelanggan tidak bisa menebak jumlah penjualan.
@@ -1234,7 +1290,7 @@ function labaRugi(d) {
 const R = (t, v, k, sub) => `<div class="lp ${k || ''}"><span>${t}${sub ? `<small>${sub}</small>` : ''}</span><span class="v">${v}</span></div>`;
 const JD = (t) => `<div class="lp judul"><span>${t}</span><span></span></div>`;
 const warnaAngka = (x) => `<span class="${x >= 0 ? 'pos' : 'neg'}">${n0(x)}</span>`;
-function grup(arr, kunci, nilai) { const m = {}; arr.forEach((x) => { const k = kunci(x); const o = m[k] || (m[k] = { k, n: 0, a: 0, b: 0 }); o.n++; const [a, b] = nilai(x); o.a += a; o.b += b; }); return Object.keys(m).map((k) => m[k]); }
+function grup(arr, kunci, nilai) { const m = {}; arr.forEach((x) => { const k = kunci(x); const o = m[k] || (m[k] = { k, n: 0, a: 0, b: 0, c: x }); o.n++; const [a, b] = nilai(x); o.a += a; o.b += b; }); return Object.keys(m).map((k) => m[k]); }
 function renderLap() {
   const b = LP.bulan, d = dataLap(b), { ps, byr, bl, blStok, blBiasa, pg } = d, L = labaRugi(d), v = lihat(), out = [];
   $('l_lap').querySelector('.periode').style.display = LP.k === 'nilaistok' ? 'none' : '';
@@ -1256,10 +1312,10 @@ function renderLap() {
     [KAT_ALLIN, KAT_JASA].forEach((k) => { const a = its.filter((i) => i.Kategori === k); if (a.length) out.push(R(k, n0(jml(a, (i) => i.Subtotal)), '', `${a.length} item · ${nf(jml(a, pcsItem))} pcs`)); });
     out.push(JD('ITEM TERLARIS'));
     grup(its, (i) => String(i.Deskripsi).trim().toLowerCase(), (i) => [i.Subtotal, pcsItem(i)]).sort((x, y) => y.a - x.a).slice(0, 10)
-      .forEach((g) => out.push(R(esc(its.find((i) => String(i.Deskripsi).trim().toLowerCase() === g.k).Deskripsi), n0(g.a), '', `${nf(g.b)} pcs · ${g.n}x dipesan`)));
+      .forEach((g) => out.push(R(esc(g.c.Deskripsi), n0(g.a), '', `${nf(g.b)} pcs · ${g.n}x dipesan`)));
     out.push(JD('PELANGGAN TERATAS'));
     grup(ps, (o) => String(o.Pelanggan).trim().toLowerCase(), (o) => [o.Total, 0]).sort((x, y) => y.a - x.a).slice(0, 10)
-      .forEach((g) => out.push(R(esc(ps.find((o) => String(o.Pelanggan).trim().toLowerCase() === g.k).Pelanggan), n0(g.a), '', `${g.n} nota`)));
+      .forEach((g) => out.push(R(esc(g.c.Pelanggan), n0(g.a), '', `${g.n} nota`)));
     if (!its.length) out.push('<div class="kosong">Belum ada penjualan pada periode ini.</div>');
   } else if (LP.k === 'harian') {
     const hari = {};
@@ -1272,7 +1328,7 @@ function renderLap() {
     out.push(R('Penjualan', n0(L.pj)), R('Modal (HPP Barang Terjual)', '− ' + n0(L.modal), '', infoModal), R('Laba Kotor', warnaAngka(L.kotor), 'tebal'), JD('MODAL PER ITEM'));
     const its = []; ps.forEach((o) => o.Items.forEach((it) => its.push(it)));
     grup(its.filter((i) => i.Kategori === KAT_ALLIN), (i) => String(i.Deskripsi).trim().toLowerCase(), (i) => [i.Modal, pcsItem(i)]).sort((x, y) => y.a - x.a)
-      .forEach((g) => out.push(R(esc(its.find((i) => String(i.Deskripsi).trim().toLowerCase() === g.k).Deskripsi), n0(g.a), '', `${nf(g.b)} pcs terjual`)));
+      .forEach((g) => out.push(R(esc(g.c.Deskripsi), n0(g.a), '', `${nf(g.b)} pcs terjual`)));
     out.push(JD('PER NOTA'));
     ps.slice().sort(urutNota).forEach((o) => out.push(R(esc(o.Pelanggan), warnaAngka(o.Total - o.Modal), '', `${esc(o.NoInvoice || '')} · ${tglDMY(o.Tanggal)} · total ${n0(o.Total)} − modal ${n0(o.Modal)}`)));
   } else if (LP.k === 'operator') {
@@ -1284,7 +1340,7 @@ function renderLap() {
     [KAT_ALLIN, KAT_JASA].forEach((k) => { const a = its.filter((i) => i.Kategori === k); if (a.length) out.push(R(k, n0(jml(a, (i) => i.BiayaOperator)), '', `${nf(jml(a, pcsItem))} pcs`)); });
     out.push(JD('PER ITEM'));
     grup(its, (i) => String(i.Deskripsi).trim().toLowerCase(), (i) => [i.BiayaOperator, pcsItem(i)]).sort((x, y) => y.a - x.a)
-      .forEach((g) => out.push(R(esc(its.find((i) => String(i.Deskripsi).trim().toLowerCase() === g.k).Deskripsi), n0(g.a), '', `${nf(g.b)} pcs · rata-rata ${g.b ? nf(g.a / g.b) : '-'} per pcs`)));
+      .forEach((g) => out.push(R(esc(g.c.Deskripsi), n0(g.a), '', `${nf(g.b)} pcs · rata-rata ${g.b ? nf(g.a / g.b) : '-'} per pcs`)));
     out.push(JD('PER HARI'));
     const hari = {};
     ps.forEach((o) => { const x = hari[o.Tanggal] || (hari[o.Tanggal] = { n: 0, pcs: 0, b: 0 }); x.n++; x.pcs += jml(o.Items, pcsItem); x.b += jml(o.Items, (i) => i.BiayaOperator); });
@@ -1363,10 +1419,10 @@ async function simpanKoneksi() {
   const url = $('c_url').value.trim(), token = $('c_token').value.trim();
   if (url.indexOf('https://script.google.com/') !== 0) { pesan('URL harus diawali https://script.google.com/', 4500); return; }
   if (!token) { pesan('Kata rahasia (token) wajib diisi.', 3500); return; }
-  S.cfg = { url, token }; apiOk = false;
+  S.cfg = { url, token }; apiOk = false; perluPenuh = true;
   try { localStorage.setItem(K_CFG, JSON.stringify(S.cfg)); } catch (e) {}
   pesan('Menguji koneksi...', 8000);
-  try { await pastikanApi(); await panggil({ action: 'data' }); pesan('Terhubung ke Google Sheets ✓', 3500); sinkron(); }
+  try { await pastikanApi(); pesan('Terhubung ke Google Sheets ✓', 3500); sinkron(true); }
   catch (e) { pesan('Gagal: ' + pesanGalat(e), 8000); statusBar(); }
 }
 
@@ -1378,8 +1434,8 @@ const ACT = {
   menuNota: () => popup([{ a: 'menuBuka', d: 'pelanggan', t: 'Pelanggan' }, { a: 'menuBuka', d: 'pembelian', t: 'Pembelian' }, { a: 'menuBuka', d: 'pengeluaran', t: 'Pengeluaran' }]),
   menuBuka: (el) => bukaDaftar(el.dataset.d),
   filter: () => { $('fl_bulan').value = F.bulan; $('fl_status').value = F.status; $('dlgFilter').showModal(); },
-  filterOK: () => { F.bulan = $('fl_bulan').value; F.status = $('fl_status').value; $('dlgFilter').close(); render(); },
-  filterReset: () => { F = { bulan: '', status: 'semua' }; $('dlgFilter').close(); render(); },
+  filterOK: () => { F.bulan = $('fl_bulan').value; F.status = $('fl_status').value; notaTampil = 0; $('dlgFilter').close(); render(); },
+  filterReset: () => { F = { bulan: '', status: 'semua' }; notaTampil = 0; $('dlgFilter').close(); render(); },
   notaBaru: () => notaBaru(),
   editNota: (el) => notaEdit(el.dataset.id),
   cetakNota: (el) => { notaAktifId = el.dataset.id; bukaLayar('l_preview'); bukaPreviewIsi(); },
@@ -1411,7 +1467,7 @@ const ACT = {
   formOK: () => okForm(), formHapus: () => hapusForm(),
   lap: (el) => bukaLap(el.dataset.k),
   lapSemua: () => { $('lp_bulan').value = ''; LP.bulan = ''; renderLap(); },
-  simpanKoneksi: () => simpanKoneksi(), kirimSekarang: () => { apiOk = false; sinkron(); },
+  simpanKoneksi: () => simpanKoneksi(), kirimSekarang: () => { perluPenuh = true; sinkron(true); },
   simpanUsaha: () => simpanUsaha(),
   hapusLogo: () => { antre({ op: 'setel', key: 'logo', value: '' }); }
 };
@@ -1442,7 +1498,7 @@ $('n_list').addEventListener('pointerdown', (e) => {
 });
 $('n_list').addEventListener('pointermove', (e) => { if (tekanTimer && Math.hypot(e.clientX - tekanX, e.clientY - tekanY) > 10) batalTekan(); });
 $('n_list').addEventListener('pointercancel', batalTekan);
-$('n_list').addEventListener('scroll', () => { batalTekan(); tutupAksi(); });
+$('n_list').addEventListener('scroll', () => { batalTekan(); tutupAksi(); const l = $('n_list'); if (l.scrollTop + l.clientHeight > l.scrollHeight - 700) muatLagiNota(); });
 document.addEventListener('pointerup', () => { batalTekan(); if (abaikanKlik) setTimeout(() => { abaikanKlik = false; }, 80); });
 $('n_list').addEventListener('contextmenu', (e) => { const row = e.target.closest('.nrow'); e.preventDefault(); if (row && !e.target.closest('[data-a=cetakNota]')) bukaAksi(row); });
 // Klik di luar menu hanya menutup menu (tidak membuka nota); klik yang menyusul setelah tekan-tahan diabaikan
@@ -1459,11 +1515,12 @@ if (window.matchMedia && matchMedia('(pointer: coarse)').matches) {
 }
 
 // ---------- input ----------
-$('n_cari').addEventListener('input', render);
-$('ci_cari').addEventListener('input', () => { $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null); });
-$('cl_cari').addEventListener('input', () => { $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan')); });
+const tunda = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+$('n_cari').addEventListener('input', tunda(() => { notaTampil = 0; renderNota(lihat()); }, 150));
+$('ci_cari').addEventListener('input', tunda(() => { $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null); }, 150));
+$('cl_cari').addEventListener('input', tunda(() => { $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan')); }, 150));
 $('cl_bulan').addEventListener('change', () => { $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan')); });
-$('pl_cari').addEventListener('input', renderPilih);
+$('pl_cari').addEventListener('input', tunda(renderPilih, 150));
 $('e_memo').addEventListener('input', () => { if (E) { E.memo = $('e_memo').value; E.dirty = true; } });
 $('k_nama').addEventListener('input', autoPelanggan);
 ['it_jml', 'it_harga', 'it_disk', 'it_op'].forEach((id) => $(id).addEventListener('input', hitungItem));
@@ -1478,7 +1535,9 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) sink
 setInterval(() => { if (S.queue.length) sinkron(); }, 60000);
 
 // ---------- mulai ----------
-muatLokal(); pasangIkon();
+async function mulai() {
+pasangIkon();
+await muatLokal();
 try {   // pindahkan data nota versi lama (tersimpan per perangkat) ke Setting yang tersinkron
   const lama = JSON.parse(localStorage.getItem(K_NOTA_LAMA) || 'null');
   if (lama) {
@@ -1488,7 +1547,7 @@ try {   // pindahkan data nota versi lama (tersimpan per perangkat) ke Setting y
     if (lama.kaki && lama.kaki !== 'Terima kasih atas kepercayaan Anda') kv.push(['kaki', lama.kaki]);
     if (lama.lebar && lama.lebar !== '384') kv.push(['lebar', lama.lebar]);
     kv.forEach(([k, v]) => S.queue.push({ op: 'setel', key: k, value: v, opId: uid() }));
-    localStorage.removeItem(K_NOTA_LAMA); simpanLokal();
+    localStorage.removeItem(K_NOTA_LAMA); simpanAntrean();
   }
 } catch (e) {}
 $('ver').textContent = VERSI;
@@ -1496,6 +1555,8 @@ history.replaceState({ l: 0 }, '');
 render(); sinkron();
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+mulai();
 
 </script>
 </body>
