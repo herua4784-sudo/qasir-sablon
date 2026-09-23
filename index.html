@@ -71,12 +71,11 @@
   .irow:active { background:#f3f3f3; }
   .irow.terpilih { background:#ececec; }
   .irow .ichk { display:none; }
-  #e_items.pilih .irow { padding-left:48px; }
-  #e_items.pilih .irow .ichk { display:flex; position:absolute; left:14px; top:16px; width:23px; height:23px; border-radius:50%; border:2px solid #999; align-items:center; justify-content:center; background:#fff; }
-  #e_items.pilih .irow .ichk svg { width:15px; height:15px; fill:#fff; opacity:0; }
-  #e_items.pilih .irow.dipilih { background:#eef4ff; }
-  #e_items.pilih .irow.dipilih .ichk { background:#000; border-color:#000; }
-  #e_items.pilih .irow.dipilih .ichk svg { opacity:1; }
+  #e_items.pilih .irow { padding-right:52px; }
+  #e_items.pilih .irow .ichk { display:flex; position:absolute; right:16px; top:16px; width:26px; height:26px; border-radius:50%; align-items:center; justify-content:center; background:#d9d9d9; }
+  #e_items.pilih .irow .ichk svg { width:17px; height:17px; fill:#fff; }
+  #e_items.pilih .irow.dipilih { background:#f3f3f3; }
+  #e_items.pilih .irow.dipilih .ichk { background:#000; }
   .grp-pilih { display:none; }
   #l_editor.pilih .grp-normal { display:none; }
   #l_editor.pilih .grp-pilih { display:flex; }
@@ -359,10 +358,11 @@
 
   <!-- ================= LAYAR: EDITOR NOTA ================= -->
   <div class="layar" id="l_editor">
-    <div class="bar hitam"><button class="bi" data-a="editorBack"><i data-ic="back"></i></button><div class="jdl" id="e_judul">Nota Baru</div>
+    <div class="bar hitam"><button class="bi" id="e_backbtn" data-a="editorBack"><i data-ic="back"></i></button><div class="jdl" id="e_judul">Nota Baru</div>
       <button class="bi grp-normal" data-a="kepada" aria-label="Pelanggan"><i data-ic="orang"></i></button>
       <button class="bi grp-normal" data-a="rincian" aria-label="Rincian nota"><i data-ic="rincian"></i></button>
       <button class="bi grp-normal" data-a="simpanNota" aria-label="Simpan"><i data-ic="simpan"></i></button>
+      <button class="bi grp-pilih" data-a="itemPilihSemua" aria-label="Pilih semua"><i data-ic="cek"></i></button>
       <button class="bi grp-pilih" data-a="itemHapusSel" aria-label="Hapus item terpilih"><i data-ic="hapus"></i></button></div>
     <div class="isi">
       <input class="ul" id="e_memo" placeholder="Memo" autocomplete="off">
@@ -481,7 +481,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.3', API_MIN = 11;
+const VERSI = '5.4', API_MIN = 11;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -522,6 +522,7 @@ const IC = {
   back: '<path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>',
   add: '<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>',
   cek: '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>',
+  tutup: '<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>',
   salin: '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>',
   hapus: '<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>',
   cetak: '<path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/>',
@@ -897,8 +898,10 @@ function notaEdit(id) {
   tampilEditor(); bukaLayar('l_editor');
 }
 function tampilEditor() {
-  $('e_judul').textContent = itemSelMode ? `${itemSelSet.size} dipilih` : (E.nama && E.nama !== 'CASH' ? E.nama : (E.id ? 'CASH' : 'Nota Baru'));
+  $('e_judul').textContent = itemSelMode ? String(itemSelSet.size) : (E.nama && E.nama !== 'CASH' ? E.nama : (E.id ? 'CASH' : 'Nota Baru'));
   $('l_editor').classList.toggle('pilih', itemSelMode);
+  $('e_backbtn').innerHTML = svg(itemSelMode ? 'tutup' : 'back');
+  $('e_backbtn').setAttribute('aria-label', itemSelMode ? 'Batal pilih' : 'Kembali');
   $('e_memo').value = E.memo;
   $('e_items').classList.toggle('pilih', itemSelMode);
   $('e_items').innerHTML = E.items.length ? E.items.map((it, i) =>
@@ -924,6 +927,11 @@ function hapusItemPress(id) {
   if (!confirm('Hapus item ini dari nota?')) return;
   const i = E.items.findIndex((x) => x.ID === id); if (i < 0) return;
   E.items.splice(i, 1); E.dirty = true; tampilEditor();
+}
+function pilihSemuaItem() {
+  if (itemSelSet.size >= E.items.length) itemSelSet.clear();
+  else E.items.forEach((it) => itemSelSet.add(it.ID));
+  tampilEditor();
 }
 function hapusItemTerpilih() {
   const n = itemSelSet.size; if (!n) return;
@@ -1857,7 +1865,7 @@ const ACT = {
   hapusNotaDlg: async () => { const id = E && E.id; if (id && await hapusNota(id)) { $('dlgRincian').close(); E = null; tutupLayar(); } },
   simpanNota: () => simpanNota(),
   itemBaru: () => itemBaru(), itemEdit: (el) => { const i = Number(el.dataset.i); if (itemSelMode) toggleItemSel(E.items[i] && E.items[i].ID); else itemEdit(i); }, itemOK: () => okItem(), itemHapus: () => hapusItem(), pilihBrg: () => bukaPilih('barang'),
-  itemAksiHapus: (el) => { tutupAksi(); hapusItemPress(el.dataset.id); }, itemAksiPilih: (el) => { tutupAksi(); setModePilih(true); itemSelSet.add(el.dataset.id); tampilEditor(); }, itemHapusSel: () => hapusItemTerpilih(),
+  itemAksiHapus: (el) => { tutupAksi(); hapusItemPress(el.dataset.id); }, itemAksiPilih: (el) => { tutupAksi(); setModePilih(true); itemSelSet.add(el.dataset.id); tampilEditor(); }, itemPilihSemua: () => pilihSemuaItem(), itemHapusSel: () => hapusItemTerpilih(),
   pilihItem: (el) => pilihItem(el.dataset.id),
   katPilih: (el) => { EI.kat = el.dataset.k; segKat(); hitungItem(); },
   qty: (el) => { const v = Math.max(0, (Number($('it_jml').value) || 0) + Number(el.dataset.d)); $('it_jml').value = v; hitungItem(); },
