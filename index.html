@@ -1080,14 +1080,14 @@ function gambarNota(o) {
     });
     garis();
     const sisa = Math.max(o.Total - o.Dibayar, 0);
-    const teksQty = 'Total Qty: ' + nf(qty), ukTotal = W <= 384 ? 14 : 18;    // kertas 58 mm: TOTAL, BAYAR, SISA berukuran 14
+    const teksQty = 'Total Qty: ' + nf(qty), ukTotal = 16;    // disamakan dengan ukuran baris item (16), untuk kertas 58 mm maupun 80 mm
     // Tulisan TOTAL/BAYAR/SISA dirapatkan ke angkanya: jarak ke angka hanya 12 px, sejajar satu kolom.
     set(ukTotal, true); const lebarTotal = c.measureText('TOTAL').width, angkaTotal = c.measureText(n0(o.Total)).width;
     set(ukTotal, false);
     const lebarLabel = Math.max(lebarTotal, c.measureText('BAYAR').width, c.measureText('SISA').width);
     const lebarAngka = Math.max(angkaTotal, c.measureText(n0(o.Dibayar)).width, c.measureText(n0(sisa)).width);
     set(15); const lebarQty = c.measureText(teksQty).width;
-    const lab = Math.max(W - PAD - lebarAngka - 12 - lebarLabel, PAD + lebarQty + 10);
+    const lab = Math.max(W - PAD - lebarAngka - 24 - lebarLabel, PAD + lebarQty + 10);   // jarak label ke angka sedikit dilebarkan (24 px)
     set(15); c.textAlign = 'left'; c.fillText(teksQty, PAD, y + 4);
     dua('TOTAL', n0(o.Total), ukTotal, true, lab);
     dua('BAYAR', n0(o.Dibayar), ukTotal, false, lab);
