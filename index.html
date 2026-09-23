@@ -67,8 +67,20 @@
   /* ---- editor nota ---- */
   .ul { display:block; width:calc(100% - 32px); margin:14px 16px 8px; border:0; border-bottom:2px solid #666; padding:8px 0; font-size:18px; outline:none; border-radius:0; background:transparent; font-family:inherit; }
   .ul:focus { border-bottom-color:#000; }
-  .irow { padding:14px 16px 12px; border-bottom:1px solid #dcdcdc; cursor:pointer; }
+  .irow { padding:14px 16px 12px; border-bottom:1px solid #dcdcdc; cursor:pointer; position:relative; }
   .irow:active { background:#f3f3f3; }
+  .irow.terpilih { background:#ececec; }
+  .irow .ichk { display:none; }
+  #e_items.pilih .irow { padding-left:48px; }
+  #e_items.pilih .irow .ichk { display:flex; position:absolute; left:14px; top:16px; width:23px; height:23px; border-radius:50%; border:2px solid #999; align-items:center; justify-content:center; background:#fff; }
+  #e_items.pilih .irow .ichk svg { width:15px; height:15px; fill:#fff; opacity:0; }
+  #e_items.pilih .irow.dipilih { background:#eef4ff; }
+  #e_items.pilih .irow.dipilih .ichk { background:#000; border-color:#000; }
+  #e_items.pilih .irow.dipilih .ichk svg { opacity:1; }
+  .grp-pilih { display:none; }
+  #l_editor.pilih .grp-normal { display:none; }
+  #l_editor.pilih .grp-pilih { display:flex; }
+  #l_editor.pilih .fab { display:none; }
   .i1 { font-size:18px; }
   .i2 { display:flex; justify-content:space-between; gap:10px; margin-top:6px; color:#707070; font-size:17px; }
   .i2 .r { color:#111; }
@@ -348,9 +360,10 @@
   <!-- ================= LAYAR: EDITOR NOTA ================= -->
   <div class="layar" id="l_editor">
     <div class="bar hitam"><button class="bi" data-a="editorBack"><i data-ic="back"></i></button><div class="jdl" id="e_judul">Nota Baru</div>
-      <button class="bi" data-a="kepada" aria-label="Pelanggan"><i data-ic="orang"></i></button>
-      <button class="bi" data-a="rincian" aria-label="Rincian nota"><i data-ic="rincian"></i></button>
-      <button class="bi" data-a="simpanNota" aria-label="Simpan"><i data-ic="simpan"></i></button></div>
+      <button class="bi grp-normal" data-a="kepada" aria-label="Pelanggan"><i data-ic="orang"></i></button>
+      <button class="bi grp-normal" data-a="rincian" aria-label="Rincian nota"><i data-ic="rincian"></i></button>
+      <button class="bi grp-normal" data-a="simpanNota" aria-label="Simpan"><i data-ic="simpan"></i></button>
+      <button class="bi grp-pilih" data-a="itemHapusSel" aria-label="Hapus item terpilih"><i data-ic="hapus"></i></button></div>
     <div class="isi">
       <input class="ul" id="e_memo" placeholder="Memo" autocomplete="off">
       <div id="e_items"></div>
@@ -468,7 +481,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.1', API_MIN = 10;
+const VERSI = '5.3', API_MIN = 11;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -600,6 +613,7 @@ function tampilan() {
       case 'hapusBayar': { const o = cari(L.Pesanan, op.pesananId); if (o) { bayar[o.ID] = (bayar[o.ID] || []).filter((p) => p.ID !== op.id); o.Dibayar = op.dibayar; o._tunda = true; } break; }
       case 'addBayarBeli': { const r = cari(L.Belanja, op.row.BelanjaID); if (r) { const a = (bayarBeli[r.ID] = bayarBeli[r.ID] || []); if (!a.some((p) => p.ID === op.row.ID)) a.push({ ...op.row, _tunda: true }); r.Dibayar = op.dibayar; r._tunda = true; } break; }
       case 'hapusBayarBeli': { const r = cari(L.Belanja, op.belanjaId); if (r) { bayarBeli[r.ID] = (bayarBeli[r.ID] || []).filter((p) => p.ID !== op.id); r.Dibayar = op.dibayar; r._tunda = true; } break; }
+      case 'tandaiKirim': { const o = cari(L.Pesanan, op.id); if (o) { o.Terkirim = !!op.nilai; o._tunda = true; } break; }
       case 'bayar': { const o = cari(L.Pesanan, op.id); if (o) { o.Dibayar = op.dibayar; o._tunda = true; } break; }
       case 'lunasi': { const o = cari(L.Pesanan, op.id); if (o) { o.Dibayar = o.Total; o._tunda = true; } break; }
       case 'add': { const l = L[op.sheet]; if (l && !cari(l, op.row.ID)) tambahKe(l, { ...op.row, _tunda: true }); break; }
@@ -610,7 +624,7 @@ function tampilan() {
   });
   L.Pesanan.forEach((o) => {
     ['Jumlah', 'Total', 'BiayaOperator', 'Dibayar'].forEach((k) => { o[k] = Number(o[k]) || 0; });
-    o.NoHP = String(o.NoHP || ''); o.Jam = /^\d{1,2}:\d{2}/.test(String(o.Jam || '')) ? String(o.Jam).slice(0, 5) : '';
+    o.NoHP = String(o.NoHP || ''); o.Terkirim = o.Terkirim === '1' || o.Terkirim === true; o.Jam = /^\d{1,2}:\d{2}/.test(String(o.Jam || '')) ? String(o.Jam).slice(0, 5) : '';
     o._k = o.Tanggal + ' ' + o.Jam + ' ' + o.ID;      // kunci urut (terbaru di atas), dihitung sekali
     const its = (items[o.ID] || []).sort((a, b) => (Number(a.Urut) || 0) - (Number(b.Urut) || 0))
       .map((it) => ({ ...it, Kategori: normKat(it.Kategori), Jumlah: Number(it.Jumlah) || 0, Harga: Number(it.Harga) || 0, Subtotal: Number(it.Subtotal) || 0, Diskon: it.Diskon == null ? '' : String(it.Diskon) }));
@@ -695,7 +709,10 @@ window.addEventListener('popstate', () => {
   const dlg = document.querySelector('dialog[open]');
   if (dlg) { dlg.close(); history.pushState({ l: stack.length }, ''); return; }
   const atas = stack[stack.length - 1];
-  if (atas === 'l_editor' && E && E.dirty && !confirm('Buang perubahan nota ini?')) { history.pushState({ l: stack.length }, ''); return; }
+  if (atas === 'l_editor') {
+    if (itemSelMode) { setModePilih(false); history.pushState({ l: stack.length }, ''); return; }
+    if (E) { const r = simpanNotaInti(); if (!r.ok) { history.pushState({ l: stack.length }, ''); return; } E = null; }
+  }
   if (stack.length) { const id = stack.pop(); $(id).classList.remove('on'); temaBar(); }
 });
 function bukaTab(n) {
@@ -733,7 +750,7 @@ function rowNota(o) {
   const lunas = o.Total - o.Dibayar <= 0, sisa = Math.max(o.Total - o.Dibayar, 0);
   return `<div class="nrow" data-a="editNota" data-id="${o.ID}">
     <div class="kiri"><div class="av">${esc(ini(o.Pelanggan))}</div>
-      <div class="mini-ic"><button class="pr" data-a="cetakNota" data-id="${o.ID}" aria-label="Preview nota">${svg('cetak')}</button>${o._tunda ? `<span class="tunda" title="Menunggu kirim">${svg('jam')}</span>` : svg('cekganda')}</div></div>
+      <div class="mini-ic"><button class="pr" data-a="cetakNota" data-id="${o.ID}" aria-label="Preview nota">${svg('cetak')}</button>${o._tunda ? `<span class="tunda" title="Menunggu kirim ke Sheets">${svg('jam')}</span>` : o.Terkirim ? `<span title="Sudah dikirim ke pelanggan">${svg('cekganda')}</span>` : `<span title="Dibuat, belum dikirim ke pelanggan">${svg('cek')}</span>`}</div></div>
     <div class="nb"><div class="l1"><span class="nm">${esc(o.Pelanggan)}</span><span class="ad">${esc(o.Alamat)}</span></div>
       <div class="l2">${esc(waktu(o))}</div>
       <div class="l3">${lunas ? 'Lunas' : 'Sisa <b>' + n0(sisa) + '</b>'} dari total <b>${n0(o.Total)}</b></div></div></div>`;
@@ -869,25 +886,50 @@ const opTerakhir = () => { try { const v = localStorage.getItem(K_OP); return v 
 function notaBaru() {
   E = { id: null, tgl: hariIni(), jam: jamSkrg(), inv: null, nama: 'CASH', alamat: '', hp: '', memo: '', simpanPel: true, items: [], dirty: false };
   E.inv = invAcak();
+  itemSelMode = false; itemSelSet.clear();
   tampilEditor(); bukaLayar('l_editor');
 }
 function notaEdit(id) {
   const o = notaDari(id); if (!o) return;
   const items = o.Items.map((i) => ({ ...i, ID: i.ID || uid() }));
   E = { id, tgl: o.Tanggal, jam: o.Jam, inv: o.NoInvoice, nama: o.Pelanggan, alamat: o.Alamat || '', hp: o.NoHP, memo: o.Catatan || '', simpanPel: false, items, dirty: false };
+  itemSelMode = false; itemSelSet.clear();
   tampilEditor(); bukaLayar('l_editor');
 }
 function tampilEditor() {
-  $('e_judul').textContent = E.nama && E.nama !== 'CASH' ? E.nama : (E.id ? 'CASH' : 'Nota Baru');
+  $('e_judul').textContent = itemSelMode ? `${itemSelSet.size} dipilih` : (E.nama && E.nama !== 'CASH' ? E.nama : (E.id ? 'CASH' : 'Nota Baru'));
+  $('l_editor').classList.toggle('pilih', itemSelMode);
   $('e_memo').value = E.memo;
+  $('e_items').classList.toggle('pilih', itemSelMode);
   $('e_items').innerHTML = E.items.length ? E.items.map((it, i) =>
-    `<div class="irow" data-a="itemEdit" data-i="${i}"><div class="i1">${esc(it.Deskripsi)}</div>
+    `<div class="irow${itemSelMode && itemSelSet.has(it.ID) ? ' dipilih' : ''}" data-a="itemEdit" data-i="${i}"><span class="ichk">${svg('cek')}</span><div class="i1">${esc(it.Deskripsi)}</div>
       <div class="i2"><span>${nf(it.Jumlah)} ${esc(it.Satuan)} &nbsp;x ${n0(it.Harga)}</span><span class="r">${n0(subItem(it))}</span></div>
       <div class="i3">${tagKat(it.Kategori)}${it.Warna ? 'Warna ' + esc(it.Warna) + ' · ' : ''}${it.Diskon ? 'Diskon ' + esc(it.Diskon) + ' · ' : ''}Operator ${n0(it.BiayaOperator)}${it.Catatan ? ' · ' + esc(it.Catatan) : ''}</div></div>`).join('')
     : '<div class="kosong">Ketuk + untuk menambah item.</div>';
   $('e_n').textContent = E.items.length; $('e_q').textContent = nf(pcsTotal(E.items)); $('e_sub').textContent = n0(totalItems(E.items));
 }
-function editorBack() { if (E && E.dirty && !confirm('Buang perubahan nota ini?')) return; E = null; tutupLayar(); }
+// Kembali dari editor: TIDAK ada lagi konfirmasi "Buang perubahan nota ini?" - data otomatis disimpan sebagai draft (aman),
+// persis seperti menekan Simpan, hanya saja tidak berpindah ke Preview.
+function editorBack() {
+  if (itemSelMode) { setModePilih(false); return; }
+  if (!E) { tutupLayar(); return; }
+  const r = simpanNotaInti();
+  if (!r.ok) return;   // dibatalkan (mis. stok kurang & pengguna pilih Batal): tetap di editor
+  E = null; tutupLayar();
+}
+// ---------- mode pilih (tekan-tahan item -> pilih beberapa -> hapus sekaligus) ----------
+function setModePilih(on) { itemSelMode = on; if (!on) itemSelSet.clear(); tampilEditor(); }
+function toggleItemSel(id) { if (!id) return; if (itemSelSet.has(id)) itemSelSet.delete(id); else itemSelSet.add(id); tampilEditor(); }
+function hapusItemPress(id) {
+  if (!confirm('Hapus item ini dari nota?')) return;
+  const i = E.items.findIndex((x) => x.ID === id); if (i < 0) return;
+  E.items.splice(i, 1); E.dirty = true; tampilEditor();
+}
+function hapusItemTerpilih() {
+  const n = itemSelSet.size; if (!n) return;
+  if (!confirm(`Hapus ${n} item terpilih dari nota?`)) return;
+  E.items = E.items.filter((x) => !itemSelSet.has(x.ID)); E.dirty = true; setModePilih(false);
+}
 
 // Kepada Yth
 function bukaKepada() {
@@ -993,14 +1035,17 @@ function pilihItem(id) {
 }
 
 // Simpan nota
-function simpanNota() {
-  if (!E.items.length) { pesan('Tambahkan minimal 1 item.'); return; }
-  if (E.id && !E.dirty) { const id = E.id; E = null; gantiLayar('l_editor', 'l_preview'); tampilPreview(id); return; }
+// Inti penyimpanan nota (dipakai oleh tombol Simpan maupun saat menekan tombol kembali).
+// Balik { ok:true, id } bila tersimpan (atau memang tidak ada perubahan/item untuk disimpan),
+// atau { ok:false } bila dibatalkan (mis. stok kurang & pengguna pilih Batal pada konfirmasi) - dalam hal ini tetap di editor.
+function simpanNotaInti() {
+  if (!E.items.length) return { ok: true, id: E.id || null };
+  if (E.id && !E.dirty) return { ok: true, id: E.id };
   const nama = (E.nama || '').trim() || 'CASH';
   const id = E.id || uid();
   const its = E.items.map((it, i) => ({ ID: it.ID || uid(), Deskripsi: it.Deskripsi, Warna: it.Warna || '', Satuan: it.Satuan, Kategori: it.Kategori, Jumlah: it.Jumlah, Harga: it.Harga, Diskon: String(it.Diskon || ''), Subtotal: subItem(it), Catatan: it.Catatan || '', BarangID: it.BarangID || '', OperatorPerPcs: Number(it.OperatorPerPcs) || 0, BiayaOperator: Number(it.BiayaOperator) || 0, PesananID: id, Urut: i + 1 }));
   const kurangStok = cekStok(its);
-  if (kurangStok.length && !confirm('Stok tidak cukup:\n' + kurangStok.join('\n') + '\n\nTetap simpan nota ini?')) return;
+  if (kurangStok.length && !confirm('Stok tidak cukup:\n' + kurangStok.join('\n') + '\n\nTetap simpan nota ini?')) return { ok: false };
   const kat = Array.from(new Set(its.map((i) => i.Kategori)));
   const base = { Tanggal: E.tgl, Jam: E.jam, Pelanggan: nama, Alamat: E.alamat, NoHP: E.hp, Jenis: kat.length === 1 ? kat[0] : 'Campuran',
     Deskripsi: its.map((i) => `${i.Deskripsi} (${nf(i.Jumlah)} ${i.Satuan})`).join(', '), Jumlah: pcsTotal(its), Total: totalItems(its), BiayaOperator: totalOperator(its), Catatan: E.memo.trim() };
@@ -1011,7 +1056,12 @@ function simpanNota() {
   }
   if (E.id) antre({ op: 'ubahPesanan', id, row: base, items: its });
   else antre({ op: 'addPesanan', row: { ID: id, NoInvoice: invFinal(), Warna: '', HargaSatuan: '', Dibayar: 0, ...base }, items: its });
-  E = null; gantiLayar('l_editor', 'l_preview'); tampilPreview(id);
+  return { ok: true, id };
+}
+function simpanNota() {
+  if (!E.items.length) { pesan('Tambahkan minimal 1 item.'); return; }
+  const r = simpanNotaInti(); if (!r.ok) return;
+  const id = r.id; E = null; gantiLayar('l_editor', 'l_preview'); tampilPreview(id);
 }
 
 // ---------- preview & nota gambar ----------
@@ -1725,6 +1775,7 @@ function catatOp(op) {              // dipanggil sebelum aksi masuk antrean, sup
 function catatCetak(aksi) {
   const o = notaAktifId && notaDari(notaAktifId); if (!o) return;
   catatLog(aksi, 'PENJUALAN', `${o.Pelanggan} | ${o.Tanggal} | ${o.Total}`);
+  if (aksi === 'BAGIKAN' && !o.Terkirim) antre({ op: 'tandaiKirim', id: o.ID, nilai: true });   // nota dianggap sudah sampai ke pelanggan
 }
 let _logTimer = null;
 function simpanLog() {
@@ -1805,7 +1856,8 @@ const ACT = {
   rincian: () => bukaRincian(), rincianOK: () => okRincian(),
   hapusNotaDlg: async () => { const id = E && E.id; if (id && await hapusNota(id)) { $('dlgRincian').close(); E = null; tutupLayar(); } },
   simpanNota: () => simpanNota(),
-  itemBaru: () => itemBaru(), itemEdit: (el) => itemEdit(Number(el.dataset.i)), itemOK: () => okItem(), itemHapus: () => hapusItem(), pilihBrg: () => bukaPilih('barang'),
+  itemBaru: () => itemBaru(), itemEdit: (el) => { const i = Number(el.dataset.i); if (itemSelMode) toggleItemSel(E.items[i] && E.items[i].ID); else itemEdit(i); }, itemOK: () => okItem(), itemHapus: () => hapusItem(), pilihBrg: () => bukaPilih('barang'),
+  itemAksiHapus: (el) => { tutupAksi(); hapusItemPress(el.dataset.id); }, itemAksiPilih: (el) => { tutupAksi(); setModePilih(true); itemSelSet.add(el.dataset.id); tampilEditor(); }, itemHapusSel: () => hapusItemTerpilih(),
   pilihItem: (el) => pilihItem(el.dataset.id),
   katPilih: (el) => { EI.kat = el.dataset.k; segKat(); hitungItem(); },
   qty: (el) => { const v = Math.max(0, (Number($('it_jml').value) || 0) + Number(el.dataset.d)); $('it_jml').value = v; hitungItem(); },
@@ -1842,6 +1894,7 @@ document.addEventListener('click', (e) => {
 
 // ---------- menu tekan-tahan (atau klik kanan) pada daftar nota: Pembayaran ($), Salin, Hapus ----------
 let aksiId = null, tekanTimer = null, tekanX = 0, tekanY = 0, abaikanKlik = false;
+let itemSelMode = false, itemSelSet = new Set();   // mode pilih beberapa item di editor nota, untuk hapus sekaligus
 function bukaAksi(row) {
   tutupAksi(); aksiId = row.dataset.id; row.classList.add('terpilih');
   const bar = $('aksiBar'), a = $('app').getBoundingClientRect(), r = row.getBoundingClientRect();
@@ -1850,7 +1903,15 @@ function bukaAksi(row) {
     + `<button data-a="aksiHapus" data-id="${aksiId}" aria-label="Hapus nota" title="Hapus nota">${svg('hapus')}</button>`;
   bar.style.top = Math.max(4, r.top - a.top + (r.height - 56) / 2) + 'px'; bar.classList.add('on');
 }
-function tutupAksi() { $('aksiBar').classList.remove('on'); document.querySelectorAll('.nrow.terpilih').forEach((x) => x.classList.remove('terpilih')); aksiId = null; }
+function tutupAksi() { $('aksiBar').classList.remove('on'); document.querySelectorAll('.nrow.terpilih,.irow.terpilih').forEach((x) => x.classList.remove('terpilih')); aksiId = null; }
+function bukaItemAksi(row) {
+  tutupAksi(); const i = +row.dataset.i, id = E.items[i] && E.items[i].ID; if (!id) return;
+  row.classList.add('terpilih');
+  const bar = $('aksiBar'), a = $('app').getBoundingClientRect(), r = row.getBoundingClientRect();
+  bar.innerHTML = `<button data-a="itemAksiHapus" data-id="${id}" aria-label="Hapus item" title="Hapus item">${svg('hapus')}</button>`
+    + `<button data-a="itemAksiPilih" data-id="${id}" aria-label="Pilih beberapa item" title="Pilih beberapa item">${svg('cek')}</button>`;
+  bar.style.top = Math.max(4, r.top - a.top + (r.height - 56) / 2) + 'px'; bar.classList.add('on');
+}
 function batalTekan() { clearTimeout(tekanTimer); tekanTimer = null; }
 $('n_list').addEventListener('pointerdown', (e) => {
   const row = e.target.closest('.nrow'); if (!row || e.target.closest('[data-a=cetakNota]')) return;
@@ -1860,12 +1921,23 @@ $('n_list').addEventListener('pointerdown', (e) => {
 $('n_list').addEventListener('pointermove', (e) => { if (tekanTimer && Math.hypot(e.clientX - tekanX, e.clientY - tekanY) > 10) batalTekan(); });
 $('n_list').addEventListener('pointercancel', batalTekan);
 $('n_list').addEventListener('scroll', () => { batalTekan(); tutupAksi(); const l = $('n_list'); if (l.scrollTop + l.clientHeight > l.scrollHeight - 700) muatLagiNota(); });
+$('e_items').addEventListener('scroll', () => { batalTekan(); tutupAksi(); });
 document.addEventListener('pointerup', () => { batalTekan(); if (abaikanKlik) setTimeout(() => { abaikanKlik = false; }, 80); });
 $('n_list').addEventListener('contextmenu', (e) => { const row = e.target.closest('.nrow'); e.preventDefault(); if (row && !e.target.closest('[data-a=cetakNota]')) bukaAksi(row); });
+// tekan-tahan pada item di editor nota: sama pola dengan daftar nota, tapi tidak aktif saat sudah dalam mode pilih (tap saja untuk toggle)
+$('e_items').addEventListener('pointerdown', (e) => {
+  if (itemSelMode) return;
+  const row = e.target.closest('.irow'); if (!row) return;
+  batalTekan(); tekanX = e.clientX; tekanY = e.clientY;
+  tekanTimer = setTimeout(() => { tekanTimer = null; abaikanKlik = true; if (navigator.vibrate) navigator.vibrate(25); bukaItemAksi(row); }, 500);
+});
+$('e_items').addEventListener('pointermove', (e) => { if (tekanTimer && Math.hypot(e.clientX - tekanX, e.clientY - tekanY) > 10) batalTekan(); });
+$('e_items').addEventListener('pointercancel', batalTekan);
+$('e_items').addEventListener('contextmenu', (e) => { if (itemSelMode) { e.preventDefault(); return; } const row = e.target.closest('.irow'); e.preventDefault(); if (row) bukaItemAksi(row); });
 // Klik di luar menu hanya menutup menu (tidak membuka nota); klik yang menyusul setelah tekan-tahan diabaikan
 document.addEventListener('click', (e) => {
   if (abaikanKlik) { e.stopPropagation(); e.preventDefault(); return; }
-  if (aksiId && !e.target.closest('#aksiBar')) { tutupAksi(); e.stopPropagation(); e.preventDefault(); }
+  if ($('aksiBar').classList.contains('on') && !e.target.closest('#aksiBar')) { tutupAksi(); e.stopPropagation(); e.preventDefault(); }
 }, true);
 
 // Saat keyboard HP terbuka, sembunyikan batang menu bawah (tidak ikut terdorong naik)
