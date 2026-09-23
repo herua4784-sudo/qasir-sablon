@@ -481,7 +481,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.4', API_MIN = 11;
+const VERSI = '5.5', API_MIN = 11;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1190,8 +1190,8 @@ function cetakNota() {
   setTimeout(() => window.print(), 100);
 }
 function bukaWA(hp) {
-  const no = nomorWA(hp); if (!no) { pesan('Isi nomor telepon dulu (pakai kode negara, contoh 62812...).', 3500); return; }
-  window.open('https://wa.me/' + no, '_blank');
+  const no = nomorWA(hp); if (!no) { pesan('Isi nomor telepon dulu (pakai kode negara, contoh 62812...).', 3500); return false; }
+  window.open('https://wa.me/' + no, '_blank'); return true;
 }
 
 // ---------- pembayaran ----------
@@ -1873,7 +1873,7 @@ const ACT = {
   pvBayar: () => bukaBayar(), pvBagikan: () => bagikanNota(), pvCetak: () => cetakNota(),
   pvMenu: () => popup([{ a: 'pvUbah', t: 'Ubah Nota' }, { a: 'pvWA', t: 'Buka WhatsApp Pelanggan' }, { a: 'pvUnduh', t: 'Simpan Gambar' }, { a: 'pvHapus', t: 'Hapus Nota' }]),
   pvUbah: () => { const id = notaAktifId; const st = stack.indexOf('l_preview'); if (st >= 0) { $('l_preview').classList.remove('on'); stack.splice(st, 1); abaikan++; history.back(); } notaEdit(id); },
-  pvWA: () => { const o = notaDari(notaAktifId); if (o) bukaWA(o.NoHP); },
+  pvWA: () => { const o = notaDari(notaAktifId); if (o && bukaWA(o.NoHP)) catatCetak('BAGIKAN'); },   // "Buka WhatsApp Pelanggan" juga menandai terkirim, sama seperti tombol Bagikan
   pvUnduh: () => { catatCetak('BAGIKAN'); unduhNota(); },
   pvHapus: async () => { if (await hapusNota(notaAktifId)) tutupLayar(); },
   konfirmOK: () => selesaiKonfirm(true), konfirmBatal: () => selesaiKonfirm(false),
