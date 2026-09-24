@@ -81,6 +81,16 @@
   #l_editor.pilih .grp-normal { display:none; }
   #l_editor.pilih .grp-pilih { display:flex; }
   #l_editor.pilih .fab { display:none; }
+  #t_item.pilih .grp-pilih { display:flex; }
+  #t_item.pilih .fab { display:none; }
+  .crow { position:relative; }
+  .crow.terpilih { background:#ececec; }
+  .crow .ichk { display:none; }
+  #ci_list.pilih .crow { padding-right:52px; }
+  #ci_list.pilih .crow .ichk { display:flex; position:absolute; right:16px; top:50%; transform:translateY(-50%); width:26px; height:26px; border-radius:50%; align-items:center; justify-content:center; background:#d9d9d9; }
+  #ci_list.pilih .crow .ichk svg { width:17px; height:17px; fill:#fff; }
+  #ci_list.pilih .crow.dipilih { background:#f3f3f3; }
+  #ci_list.pilih .crow.dipilih .ichk { background:#000; }
   .i1 { font-size:18px; }
   .i2 { display:flex; justify-content:space-between; gap:10px; margin-top:6px; color:#707070; font-size:17px; }
   .i2 .r { color:#111; }
@@ -267,7 +277,9 @@
 
   <!-- ================= TAB: ITEM ================= -->
   <section class="tab" id="t_item">
-    <div class="bar putih"><div class="jdl">Item</div></div>
+    <div class="bar putih"><button class="bi grp-pilih" data-a="brgBatalPilih" aria-label="Batal pilih"><i data-ic="tutup"></i></button><div class="jdl" id="ci_judul">Item</div>
+      <button class="bi grp-pilih" data-a="brgPilihSemua" aria-label="Pilih semua"><i data-ic="cek"></i></button>
+      <button class="bi grp-pilih" data-a="brgHapusSel" aria-label="Hapus item terpilih"><i data-ic="hapus"></i></button></div>
     <div class="cari"><input id="ci_cari" type="search" placeholder="Cari nama item" autocomplete="off"></div>
     <div class="isi" id="ci_list"></div>
     <div class="ringkas" id="ci_ringkas"></div>
@@ -482,7 +494,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.7', API_MIN = 11;
+const VERSI = '5.8', API_MIN = 11;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -719,6 +731,7 @@ window.addEventListener('popstate', () => {
 });
 function bukaTab(n) {
   tutupAksi();
+  if (n !== 'item' && brgSelMode) { brgSelMode = false; brgSelSet.clear(); kotor.item = true; }
   document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x.id === 't_' + n));
   document.querySelectorAll('#nav button').forEach((x) => x.classList.toggle('on', x.dataset.t === n));
   if (n === 'setting') isiSetting();
@@ -777,8 +790,38 @@ function muatLagiNota() {
   $('n_list').insertAdjacentHTML('beforeend', notaHasil.slice(dari, notaTampil).map(rowNota).join('') + (notaTampil < notaHasil.length ? htmlLagi() : ''));
 }
 function renderItemTab(v) {
+  $('ci_judul').textContent = brgSelMode ? String(brgSelSet.size) : 'Item';
+  $('t_item').classList.toggle('pilih', brgSelMode);
+  $('ci_list').classList.toggle('pilih', brgSelMode);
   $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null);
   $('ci_ringkas').textContent = `Nilai stok ${n0(Math.round(jml(Object.keys(v.stok), (k) => v.stok[k].nilai)))} dari ${v.Barang.length} item.`;
+}
+// ---------- mode pilih di menu Item (tekan-tahan -> pilih beberapa -> hapus sekaligus) ----------
+function bukaBrgAksi(row) {
+  tutupAksi(); const id = row.dataset.id; if (!id) return;
+  row.classList.add('terpilih');
+  const bar = $('aksiBar'), a = $('app').getBoundingClientRect(), r = row.getBoundingClientRect();
+  bar.innerHTML = `<button data-a="brgAksiHapus" data-id="${id}" aria-label="Hapus item" title="Hapus item">${svg('hapus')}</button>`
+    + `<button data-a="brgAksiPilih" data-id="${id}" aria-label="Pilih beberapa item" title="Pilih beberapa item">${svg('cek')}</button>`;
+  bar.style.top = Math.max(4, r.top - a.top + (r.height - 56) / 2) + 'px'; bar.classList.add('on');
+}
+function toggleBrgSel(id) { if (!id) return; if (brgSelSet.has(id)) brgSelSet.delete(id); else brgSelSet.add(id); renderItemTab(lihat()); }
+function brgHapusSatu(id) {
+  const b = lihat().Barang.find((x) => x.ID === id); if (!b) return;
+  if (!confirm(`Hapus item "${b.Nama}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+  antre({ op: 'hapus', sheet: 'Barang', id });
+}
+function pilihSemuaBrg() {
+  const ids = Array.from(document.querySelectorAll('#ci_list .crow')).map((el) => el.dataset.id);
+  if (ids.length && ids.every((id) => brgSelSet.has(id))) brgSelSet.clear();
+  else ids.forEach((id) => brgSelSet.add(id));
+  renderItemTab(lihat());
+}
+function hapusBrgTerpilih() {
+  const n = brgSelSet.size; if (!n) return;
+  if (!confirm(`Hapus ${n} item terpilih? Tindakan ini tidak bisa dibatalkan.`)) return;
+  brgSelSet.forEach((id) => antre({ op: 'hapus', sheet: 'Barang', id }));
+  brgSelMode = false; brgSelSet.clear(); renderItemTab(lihat());
 }
 // render(): data berubah. Hanya bagian yang sedang tampil yang digambar ulang; sisanya digambar saat dibuka.
 function render() { kotor.nota = kotor.item = kotor.list = kotor.setting = true; renderTampil(); }
@@ -1339,7 +1382,8 @@ function daftarCrud(nama, cariEl, bulanEl) {
   const c = CRUD[nama]; if (!c) return '';
   const q = (cariEl.value || '').trim().toLowerCase(), b = bulanEl ? bulanEl.value : '';
   const arr = lihat()[c.sheet].filter((r) => (!q || c.cari(r).toLowerCase().indexOf(q) >= 0) && (!b || String(r.Tanggal).slice(0, 7) === b)).sort(c.urut);
-  return arr.length ? arr.map((r) => `<div class="crow" data-a="crudEdit" data-c="${nama}" data-id="${r.ID}">${c.baris(r)}</div>`).join('') : '<div class="kosong">Belum ada data.</div>';
+  const sel = nama === 'barang' && brgSelMode;
+  return arr.length ? arr.map((r) => `<div class="crow${sel && brgSelSet.has(r.ID) ? ' dipilih' : ''}" data-a="crudEdit" data-c="${nama}" data-id="${r.ID}"><span class="ichk">${svg('cek')}</span>${c.baris(r)}</div>`).join('') : '<div class="kosong">Belum ada data.</div>';
 }
 function bukaDaftar(nama) {
   crudAktif = nama; const c = CRUD[nama];
@@ -1885,7 +1929,8 @@ const ACT = {
   bukaBayarBeli: (el) => bukaBayarBeli(el.dataset.id), bayarBeliLunas: () => simpanBayarBeli(true), bayarBeliSimpan: () => simpanBayarBeli(false), bayarBeliHapus: (el) => hapusBayarBeliUI(el.dataset.id),
   tutupDlg: (el) => el.closest('dialog').close(),
   crudBaru: (el) => bukaForm(el.dataset.c || crudAktif, null),
-  crudEdit: (el) => bukaForm(el.dataset.c, el.dataset.id),
+  crudEdit: (el) => { if (el.dataset.c === 'barang' && brgSelMode) { toggleBrgSel(el.dataset.id); return; } bukaForm(el.dataset.c, el.dataset.id); },
+  brgAksiHapus: (el) => { tutupAksi(); brgHapusSatu(el.dataset.id); }, brgAksiPilih: (el) => { tutupAksi(); brgSelMode = true; brgSelSet.add(el.dataset.id); renderItemTab(lihat()); }, brgPilihSemua: () => pilihSemuaBrg(), brgHapusSel: () => hapusBrgTerpilih(), brgBatalPilih: () => { brgSelMode = false; brgSelSet.clear(); renderItemTab(lihat()); },
   formOK: () => okForm(), formHapus: () => hapusForm(),
   lap: (el) => bukaLap(el.dataset.k),
   lapKartu: (el) => { const id = el.dataset.d; LP.buka[id] = !LP.buka[id]; const y = $('lp_isi').scrollTop; renderLap(); $('lp_isi').scrollTop = y; },
@@ -1904,6 +1949,7 @@ document.addEventListener('click', (e) => {
 // ---------- menu tekan-tahan (atau klik kanan) pada daftar nota: Pembayaran ($), Salin, Hapus ----------
 let aksiId = null, tekanTimer = null, tekanX = 0, tekanY = 0, abaikanKlik = false;
 let itemSelMode = false, itemSelSet = new Set();   // mode pilih beberapa item di editor nota, untuk hapus sekaligus
+let brgSelMode = false, brgSelSet = new Set();     // mode pilih beberapa item di menu Item, untuk hapus sekaligus
 function bukaAksi(row) {
   tutupAksi(); aksiId = row.dataset.id; row.classList.add('terpilih');
   const bar = $('aksiBar'), a = $('app').getBoundingClientRect(), r = row.getBoundingClientRect();
@@ -1912,7 +1958,7 @@ function bukaAksi(row) {
     + `<button data-a="aksiHapus" data-id="${aksiId}" aria-label="Hapus nota" title="Hapus nota">${svg('hapus')}</button>`;
   bar.style.top = Math.max(4, r.top - a.top + (r.height - 56) / 2) + 'px'; bar.classList.add('on');
 }
-function tutupAksi() { $('aksiBar').classList.remove('on'); document.querySelectorAll('.nrow.terpilih,.irow.terpilih').forEach((x) => x.classList.remove('terpilih')); aksiId = null; }
+function tutupAksi() { $('aksiBar').classList.remove('on'); document.querySelectorAll('.nrow.terpilih,.irow.terpilih,.crow.terpilih').forEach((x) => x.classList.remove('terpilih')); aksiId = null; }
 function bukaItemAksi(row) {
   tutupAksi(); const i = +row.dataset.i, id = E.items[i] && E.items[i].ID; if (!id) return;
   row.classList.add('terpilih');
@@ -1931,6 +1977,17 @@ $('n_list').addEventListener('pointermove', (e) => { if (tekanTimer && Math.hypo
 $('n_list').addEventListener('pointercancel', batalTekan);
 $('n_list').addEventListener('scroll', () => { batalTekan(); tutupAksi(); const l = $('n_list'); if (l.scrollTop + l.clientHeight > l.scrollHeight - 700) muatLagiNota(); });
 $('e_items').addEventListener('scroll', () => { batalTekan(); tutupAksi(); });
+// tekan-tahan pada baris Item: sama pola dengan item nota, tapi tidak aktif saat sudah dalam mode pilih
+$('ci_list').addEventListener('pointerdown', (e) => {
+  if (brgSelMode) return;
+  const row = e.target.closest('.crow'); if (!row) return;
+  batalTekan(); tekanX = e.clientX; tekanY = e.clientY;
+  tekanTimer = setTimeout(() => { tekanTimer = null; abaikanKlik = true; if (navigator.vibrate) navigator.vibrate(25); bukaBrgAksi(row); }, 500);
+});
+$('ci_list').addEventListener('pointermove', (e) => { if (tekanTimer && Math.hypot(e.clientX - tekanX, e.clientY - tekanY) > 10) batalTekan(); });
+$('ci_list').addEventListener('pointercancel', batalTekan);
+$('ci_list').addEventListener('contextmenu', (e) => { if (brgSelMode) { e.preventDefault(); return; } const row = e.target.closest('.crow'); e.preventDefault(); if (row) bukaBrgAksi(row); });
+$('ci_list').addEventListener('scroll', () => { batalTekan(); tutupAksi(); });
 document.addEventListener('pointerup', () => { batalTekan(); if (abaikanKlik) setTimeout(() => { abaikanKlik = false; }, 80); });
 $('n_list').addEventListener('contextmenu', (e) => { const row = e.target.closest('.nrow'); e.preventDefault(); if (row && !e.target.closest('[data-a=cetakNota]')) bukaAksi(row); });
 // tekan-tahan pada item di editor nota: sama pola dengan daftar nota, tapi tidak aktif saat sudah dalam mode pilih (tap saja untuk toggle)
