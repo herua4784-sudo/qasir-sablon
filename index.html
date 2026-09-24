@@ -481,7 +481,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.5', API_MIN = 11;
+const VERSI = '5.6', API_MIN = 11;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -625,7 +625,7 @@ function tampilan() {
   });
   L.Pesanan.forEach((o) => {
     ['Jumlah', 'Total', 'BiayaOperator', 'Dibayar'].forEach((k) => { o[k] = Number(o[k]) || 0; });
-    o.NoHP = String(o.NoHP || ''); o.Terkirim = o.Terkirim === '1' || o.Terkirim === true; o.Jam = /^\d{1,2}:\d{2}/.test(String(o.Jam || '')) ? String(o.Jam).slice(0, 5) : '';
+    o.NoHP = String(o.NoHP || ''); o.Terkirim = o.Terkirim === '1' || o.Terkirim === 1 || o.Terkirim === true; o.Jam = /^\d{1,2}:\d{2}/.test(String(o.Jam || '')) ? String(o.Jam).slice(0, 5) : '';
     o._k = o.Tanggal + ' ' + o.Jam + ' ' + o.ID;      // kunci urut (terbaru di atas), dihitung sekali
     const its = (items[o.ID] || []).sort((a, b) => (Number(a.Urut) || 0) - (Number(b.Urut) || 0))
       .map((it) => ({ ...it, Kategori: normKat(it.Kategori), Jumlah: Number(it.Jumlah) || 0, Harga: Number(it.Harga) || 0, Subtotal: Number(it.Subtotal) || 0, Diskon: it.Diskon == null ? '' : String(it.Diskon) }));
