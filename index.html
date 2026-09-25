@@ -82,6 +82,7 @@
   #l_editor.pilih .grp-pilih { display:flex; }
   #l_editor.pilih .fab { display:none; }
   #t_item.pilih .grp-pilih { display:flex; }
+  #t_item.pilih .grp-normal { display:none; }
   #t_item.pilih .fab { display:none; }
   .crow { position:relative; }
   .crow.terpilih { background:#ececec; }
@@ -278,6 +279,7 @@
   <!-- ================= TAB: ITEM ================= -->
   <section class="tab" id="t_item">
     <div class="bar putih"><button class="bi grp-pilih" data-a="brgBatalPilih" aria-label="Batal pilih"><i data-ic="tutup"></i></button><div class="jdl" id="ci_judul">Item</div>
+      <button class="bi grp-normal" data-a="menuItem" aria-label="Menu"><i data-ic="more"></i></button>
       <button class="bi grp-pilih" data-a="brgPilihSemua" aria-label="Pilih semua"><i data-ic="cek"></i></button>
       <button class="bi grp-pilih" data-a="brgHapusSel" aria-label="Hapus item terpilih"><i data-ic="hapus"></i></button></div>
     <div class="cari"><input id="ci_cari" type="search" placeholder="Cari nama item" autocomplete="off"></div>
@@ -494,7 +496,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.8', API_MIN = 11;
+const VERSI = '5.10', API_MIN = 12;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -559,7 +561,7 @@ function pasangIkon() { document.querySelectorAll('i[data-ic]').forEach((el) => 
 // ---------- data & penyimpanan ----------
 // S.snap  = salinan terakhir data dari Google Sheets
 // S.queue = aksi yang belum terkirim (nota baru, pembayaran, pelanggan, dst.)
-let S = { snap: { Pesanan: [], Item: [], Pembayaran: [], PembayaranBeli: [], Pelanggan: [], Barang: [], Belanja: [], Pengeluaran: [], Setelan: [] }, queue: [], cfg: { url: '', token: '' }, lastSync: null, versi: 0 };
+let S = { snap: { Pesanan: [], Item: [], Pembayaran: [], PembayaranBeli: [], Pelanggan: [], Barang: [], Belanja: [], Pengeluaran: [], Penyesuaian: [], Setelan: [] }, queue: [], cfg: { url: '', token: '' }, lastSync: null, versi: 0 };
 let sedang = false, galatSinkron = '', apiOk = false, _V = null;
 let F = { bulan: '', status: 'semua' };                 // filter daftar nota
 let E = null, EI = null;                                // nota yang sedang diedit, item yang sedang diedit
@@ -609,7 +611,7 @@ function pesan(t, ms) { const m = $('msg'); m.textContent = t; m.style.display =
 // ---------- tampilan = salinan Sheets + aksi yang belum terkirim ----------
 function tampilan() {
   const s = S.snap, salin = (a) => (a || []).map((x) => ({ ...x }));
-  const L = { Pesanan: salin(s.Pesanan), Pelanggan: salin(s.Pelanggan), Barang: salin(s.Barang), Belanja: salin(s.Belanja), Pengeluaran: salin(s.Pengeluaran) };
+  const L = { Pesanan: salin(s.Pesanan), Pelanggan: salin(s.Pelanggan), Barang: salin(s.Barang), Belanja: salin(s.Belanja), Pengeluaran: salin(s.Pengeluaran), Penyesuaian: salin(s.Penyesuaian) };
   const items = {}, bayar = {}, bayarBeli = {}, cfg = { ...CFG_DEF };
   (s.Item || []).forEach((it) => { (items[it.PesananID] = items[it.PesananID] || []).push({ ...it }); });
   (s.Pembayaran || []).forEach((p) => { (bayar[p.PesananID] = bayar[p.PesananID] || []).push({ ...p }); });
@@ -671,7 +673,8 @@ function tampilan() {
     o.Modal = 0;
     o.Items.forEach((it) => { const c = h.cogs[o.ID + '|' + it.ID]; it.Modal = c ? Math.round(c) : 0; it.TanpaHPP = it.Kategori === KAT_ALLIN && !(it.Modal > 0); o.Modal += it.Modal; });
   });
-  return { Pesanan: L.Pesanan, Pelanggan: L.Pelanggan, Barang: L.Barang, Belanja: L.Belanja, Pengeluaran: L.Pengeluaran, cfg, stok: h.st, kartu: h.kartu };
+  L.Penyesuaian.forEach((r) => { r.Jumlah = Number(r.Jumlah) || 0; const c = h.rugi[r.ID]; r.Rugi = c ? Math.round(c) : 0; });
+  return { Pesanan: L.Pesanan, Pelanggan: L.Pelanggan, Barang: L.Barang, Belanja: L.Belanja, Pengeluaran: L.Pengeluaran, Penyesuaian: L.Penyesuaian, cfg, stok: h.st, kartu: h.kartu };
 }
 // Stok & HPP (rata-rata tertimbang). Semua kejadian diputar ulang berurutan waktu:
 //  stok awal -> pembelian (harga + biaya travel) -> penjualan Harga All-In (mengurangi stok, modal = jumlah x HPP saat itu)
@@ -681,10 +684,12 @@ function hitungStok(L, sampai) {           // sampai (YYYY-MM-DD, opsional): pos
   L.Barang.forEach((b) => { const q = Number(b.StokAwal) || 0; if (q !== 0) ev.push({ t: '0000-00-00 00:00', o: 0, id: b.ID, qty: q, hpp: Number(b.HPPAwal) || 0, ket: 'Stok awal' }); });
   L.Belanja.forEach((r) => { if (r.BarangID && brg[r.BarangID] && !(sampai && String(r.Tanggal) > sampai)) ev.push({ t: String(r.Tanggal) + ' 00:00', o: 1, id: r.BarangID, qty: Number(r.Jumlah) || 0, biaya: (Number(r.TotalHarga) || 0) + (Number(r.BiayaTravel) || 0), ket: 'Pembelian' + (r.Supplier ? ' · ' + r.Supplier : '') }); });
   L.Pesanan.forEach((o) => o.Items.forEach((it) => { if (it.BarangID && brg[it.BarangID] && it.Kategori === KAT_ALLIN && !(sampai && o.Tanggal > sampai)) ev.push({ t: o.Tanggal + ' ' + (o.Jam || '00:00'), o: 2, id: it.BarangID, qty: pcsItem(it), ket: 'Penjualan ' + (o.NoInvoice || '') + ' · ' + o.Pelanggan, key: o.ID + '|' + it.ID }); }));
+  // Penyesuaian stok manual: jumlah negatif = rusak/hilang/kurang (dicatat sbg kerugian), positif = koreksi lebih (ditambahkan pada HPP rata-rata saat ini, tanpa mengubahnya).
+  L.Penyesuaian.forEach((r) => { if (r.BarangID && brg[r.BarangID] && !(sampai && String(r.Tanggal) > sampai)) ev.push({ t: String(r.Tanggal) + ' 00:01', o: 1.5, id: r.BarangID, qty: Number(r.Jumlah) || 0, key: r.ID, ket: 'Penyesuaian' + (r.Alasan ? ' · ' + r.Alasan : '') }); });
   ev.sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : a.o - b.o));
   // HPP dihitung dari HPP Awal (bila diisi) dan pembelian (harga + biaya travel), dengan rata-rata tertimbang.
   // Bila HPP Awal dikosongkan, modal stok awal belum diketahui: begitu ada pembelian, stok awal dihargai sama dengan pembelian itu.
-  const st = {}, kartu = {}, cogs = {};
+  const st = {}, kartu = {}, cogs = {}, rugi = {};
   Object.keys(brg).forEach((id) => { st[id] = { stok: 0, nilai: 0, avg: 0, terakhir: 0, unk: 0 }; kartu[id] = []; });
   ev.forEach((e) => {
     const s = st[e.id];
@@ -698,11 +703,14 @@ function hitungStok(L, sampai) {           // sampai (YYYY-MM-DD, opsional): pos
       if (s.stok <= 0) { s.stok += e.qty; s.unk = 0; s.avg = unit; }
       else { const dikenal = s.stok - s.unk; s.avg = (dikenal * s.avg + s.unk * unit + e.biaya) / (s.stok + e.qty); s.stok += e.qty; s.unk = 0; }
       if (e.qty > 0) s.terakhir = unit;
+    } else if (e.o === 1.5) {
+      if (e.qty >= 0) { s.stok += e.qty; if (!(s.avg > 0)) s.unk = Math.max(0, s.unk + e.qty); }              // koreksi lebih: ditambah pada HPP rata-rata yg sudah ada; kalau belum ada HPP sama sekali, dianggap belum diketahui (sama seperti stok awal tanpa HPP)
+      else { rugi[e.key] = -e.qty * s.avg; s.stok += e.qty; s.unk = Math.max(0, s.unk + e.qty); }              // rusak/hilang/kurang: dianggap kerugian sebesar qty x HPP rata-rata saat ini
     } else { cogs[e.key] = e.qty * s.avg; s.stok -= e.qty; s.unk = Math.max(0, s.unk - e.qty); }
     s.nilai = s.stok > 0 ? s.stok * s.avg : 0;
     kartu[e.id].push({ t: e.t, ket: e.ket, qty: e.o < 2 ? e.qty : -e.qty, stok: s.stok, avg: s.avg });
   });
-  return { st, kartu, cogs };
+  return { st, kartu, cogs, rugi };
 }
 function lihat() { return _V || (_V = tampilan()); }
 // Terbaru di atas. Nota di menit yang sama diurutkan menurut urutan pembuatannya (ID), bukan nomor invoice yang acak.
@@ -895,7 +903,7 @@ async function sinkron(paksa) {
     } while (S.queue.length);
     if (dataTerbaru) {
       const d = dataTerbaru.data;
-      S.snap = { Pesanan: d.Pesanan || [], Item: d.Item || [], Pembayaran: d.Pembayaran || [], PembayaranBeli: d.PembayaranBeli || [], Pelanggan: d.Pelanggan || [], Barang: d.Barang || [], Belanja: d.Belanja || [], Pengeluaran: d.Pengeluaran || [], Setelan: d.Setelan || [] };
+      S.snap = { Pesanan: d.Pesanan || [], Item: d.Item || [], Pembayaran: d.Pembayaran || [], PembayaranBeli: d.PembayaranBeli || [], Pelanggan: d.Pelanggan || [], Barang: d.Barang || [], Belanja: d.Belanja || [], Pengeluaran: d.Pengeluaran || [], Penyesuaian: d.Penyesuaian || [], Setelan: d.Setelan || [] };
       S.versi = dataTerbaru.versi; perluPenuh = false; _V = null;
     } else if (hasil && hasil.versi !== undefined) S.versi = hasil.versi;
     S.lastSync = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -1376,7 +1384,15 @@ const CRUD = {
       { k: 'Kategori', l: 'Kategori (Gaji, Sewa Gudang, Listrik, dll)', t: 'dl', o: KAT_KELUAR },
       { k: 'Jumlah', l: 'Jumlah (Rp)', t: 'number', w: 1, pos: 1 }, { k: 'Catatan', l: 'Catatan (Opsional)' }],
     cari: (r) => [r.Keterangan, r.Kategori, r.Catatan].join(' '), urut: (a, b) => String(b.Tanggal).localeCompare(String(a.Tanggal)),
-    baris: (r) => `<div class="cb"><div class="c1"><span>${esc(r.Keterangan)}</span><span class="r">${n0(r.Jumlah)}</span></div><div class="c2">${tglDMY(r.Tanggal)} · ${esc(r.Kategori || '')}${r.Catatan ? ' · ' + esc(r.Catatan) : ''}</div></div>` }
+    baris: (r) => `<div class="cb"><div class="c1"><span>${esc(r.Keterangan)}</span><span class="r">${n0(r.Jumlah)}</span></div><div class="c2">${tglDMY(r.Tanggal)} · ${esc(r.Kategori || '')}${r.Catatan ? ' · ' + esc(r.Catatan) : ''}</div></div>` },
+  penyesuaian: { sheet: 'Penyesuaian', judul: 'Penyesuaian Stok', tambah: 'Tambah Penyesuaian', ubah: 'Ubah Penyesuaian', tgl: true,
+    f: [{ k: 'Nama', l: 'Nama Item', t: 'dl', o: 'brg', w: 1 }, { k: 'StokInfo', t: 'info' },
+      { k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' },
+      { k: 'Arah', l: 'Arah', t: 'sel', o: ['Stok Berkurang (rusak/hilang/kurang input)', 'Stok Bertambah (koreksi lebih)'], virt: 1 },
+      { k: 'JumlahAbs', l: 'Jumlah (pcs)', t: 'number', pos: 1, w: 1, virt: 1 },
+      { k: 'Alasan', l: 'Alasan', t: 'dl', o: ['Rusak', 'Hilang', 'Koreksi Hitung', 'Lainnya'] }, { k: 'Catatan', l: 'Catatan (Opsional)' }],
+    cari: (r) => [r.Nama, r.Alasan, r.Catatan].join(' '), urut: (a, b) => String(b.Tanggal).localeCompare(String(a.Tanggal)),
+    baris: (r) => { const neg = Number(r.Jumlah) < 0; return `<div class="cb"><div class="c1"><span>${esc(r.Nama)}</span><span class="r ${neg ? 'neg' : ''}">${neg ? '−' : '+'}${nf(Math.abs(r.Jumlah))} pcs</span></div><div class="c2">${tglDMY(r.Tanggal)} · ${esc(r.Alasan || '-')}${r.Catatan ? ' · ' + esc(r.Catatan) : ''}</div></div>`; } }
 };
 function daftarCrud(nama, cariEl, bulanEl) {
   const c = CRUD[nama]; if (!c) return '';
@@ -1399,6 +1415,8 @@ function bukaForm(nama, id) {
     if (f.t === 'info') return `<div class="info-stok" id="ff_${f.k}"${gAttr}></div>`;
     let v = r ? (r[f.k] == null ? '' : r[f.k]) : (f.def === 'hari' ? hariIni() : (f.def || ''));
     if (nama === 'pembelian' && f.k === 'BelumLunas') v = r ? (r.Total - r.Dibayar > 0) : false;
+    if (nama === 'penyesuaian' && f.k === 'Arah') v = (r && Number(r.Jumlah) >= 0) ? 'Stok Bertambah (koreksi lebih)' : 'Stok Berkurang (rusak/hilang/kurang input)';
+    if (nama === 'penyesuaian' && f.k === 'JumlahAbs' && r) v = Math.abs(Number(r.Jumlah) || 0);
     if (nama === 'pembelian' && f.k === 'SudahDibayar' && r) v = r.Dibayar;
     if (nama === 'pembelian' && r && r.BarangID && !Number(r.JumlahDus)) {     // pembelian versi lama: dianggap 1 dus berisi semuanya
       if (f.k === 'JumlahDus') v = 1; else if (f.k === 'IsiPerDus') v = r.Jumlah; else if (f.k === 'HargaPerDus') v = r.TotalHarga; else if (f.k === 'TravelPerDus') v = r.BiayaTravel || 0;
@@ -1414,10 +1432,21 @@ function bukaForm(nama, id) {
     return `<div class="fl"${gAttr}><label for="ff_${f.k}">${esc(f.l)}</label>${f.wa ? `<div class="dgn">${inp}<button class="ikon-tombol" data-a="wa" data-src="ff_${f.k}" aria-label="Buka WhatsApp">${svg('wa')}</button></div>` : inp}${f.h ? `<div class="petunjuk">${esc(f.h)}</div>` : ''}</div>`;
   }).join('') + (c.info && r ? c.info(r) : '') + (nama === 'pembelian' && r ? infoHutangBeli(r) : '');
   if (nama === 'pembelian') pasangPembelian(r);
+  if (nama === 'penyesuaian') pasangPenyesuaian(r);
   bukaLayar('l_form');
 }
 // Formulir pembelian: item stok dibeli per dus (isi, harga, dan travel per dus), dijual per pcs.
 // Item di luar daftar Item dicatat sebagai bahan biasa (jumlah + total harga).
+function pasangPenyesuaian(r) {
+  const g = (k) => $('ff_' + k);
+  function segar() {
+    const b = cocokBarang(g('Nama').value), el = $('ff_StokInfo'); if (!el) return;
+    if (!b) { el.innerHTML = 'Nama item belum cocok dengan daftar di menu Item.'; return; }
+    const s = stokBarang(b.ID);
+    el.innerHTML = `Stok saat ini: <b>${nf(s.stok)} pcs</b> · HPP rata-rata: <b>${s.avg ? n0(Math.round(s.avg)) : '-'}</b>/pcs`;
+  }
+  g('Nama').addEventListener('input', segar); g('Nama').addEventListener('change', segar); segar();
+}
 function infoHutangBeli(r) {
   const sisa = Math.max(r.Total - r.Dibayar, 0);
   return `<div class="info-stok${sisa > 0 ? ' warn' : ''}">${sisa > 0 ? `Sisa hutang <b>${n0(sisa)}</b> dari total <b>${n0(r.Total)}</b>` : `Lunas · total ${n0(r.Total)}`}</div>` +
@@ -1476,6 +1505,11 @@ function okForm() {
     row.Dibayar = $('ff_BelumLunas').checked ? Math.max(0, Math.min(Number($('ff_SudahDibayar').value) || 0, totalBeli)) : totalBeli;
     delete row.BelumLunas; delete row.SudahDibayar;
   }
+  if (!salah && crudAktif === 'penyesuaian') {
+    const b = cocokBarang(row.Nama);
+    if (!b) salah = 'Pilih nama item yang sudah terdaftar di menu Item.';
+    else row.BarangID = b.ID, row.Jumlah = ($('ff_Arah').value.indexOf('Bertambah') >= 0 ? 1 : -1) * (Number($('ff_JumlahAbs').value) || 0);
+  }
   if (!salah && c.unik) {
     const kembar = lihat()[c.sheet].find((x) => String(x[c.unik]).trim().toLowerCase() === String(row[c.unik]).toLowerCase() && x.ID !== crudEditId);
     if (kembar) salah = c.unik + ' ini sudah ada.';
@@ -1528,7 +1562,7 @@ function renderKontrol() {
   else {
     h.push(`<div class="baris2">${tgl('dari', LP.dari)}${tgl('sampai', LP.sampai)}</div>`);
     if (k === 'aruskas') h.push(pilih('via', [['', 'Semua'], ['in', 'Cash In (uang masuk)'], ['out', 'Cash Out (uang keluar)']], LP.via));
-    if (k === 'riwayat') h.push(`<div class="baris2">${pilih('aksi', [['', 'Semua Aksi'], ['BUAT', 'BUAT'], ['UBAH', 'UBAH'], ['HAPUS', 'HAPUS'], ['CETAK', 'CETAK'], ['BAGIKAN', 'BAGIKAN']], LP.aksi)}${pilih('jenis', [['', 'Semua Jenis'], ['PENJUALAN', 'PENJUALAN'], ['PEMBAYARAN', 'PEMBAYARAN'], ['PEMBELIAN', 'PEMBELIAN'], ['PEMBAYARAN HUTANG', 'PEMBAYARAN HUTANG'], ['PENGELUARAN', 'PENGELUARAN'], ['PELANGGAN', 'PELANGGAN'], ['ITEM', 'ITEM']], LP.jenis)}</div>`, `<input class="cr" data-f="cari" placeholder="Search" value="${esc(LP.cari)}" autocomplete="off">`);
+    if (k === 'riwayat') h.push(`<div class="baris2">${pilih('aksi', [['', 'Semua Aksi'], ['BUAT', 'BUAT'], ['UBAH', 'UBAH'], ['HAPUS', 'HAPUS'], ['CETAK', 'CETAK'], ['BAGIKAN', 'BAGIKAN']], LP.aksi)}${pilih('jenis', [['', 'Semua Jenis'], ['PENJUALAN', 'PENJUALAN'], ['PEMBAYARAN', 'PEMBAYARAN'], ['PEMBELIAN', 'PEMBELIAN'], ['PEMBAYARAN HUTANG', 'PEMBAYARAN HUTANG'], ['PENGELUARAN', 'PENGELUARAN'], ['PENYESUAIAN STOK', 'PENYESUAIAN STOK'], ['PELANGGAN', 'PELANGGAN'], ['ITEM', 'ITEM']], LP.jenis)}</div>`, `<input class="cr" data-f="cari" placeholder="Search" value="${esc(LP.cari)}" autocomplete="off">`);
   }
   $('lp_kontrol').innerHTML = h.join('');
 }
@@ -1548,13 +1582,13 @@ function dataLap(dari, sampai) {
   v.Pesanan.forEach((o) => o.Bayar.forEach((p) => { if (dlm(p.Tanggal)) byr.push({ ...p, nota: o }); }));
   const idB = new Set(v.Barang.map((x) => x.ID)), adaBrg = (r) => !!(r.BarangID && idB.has(r.BarangID));
   const bl = v.Belanja.filter((r) => dlm(r.Tanggal));
-  return { ps: v.Pesanan.filter((o) => dlm(o.Tanggal)), byr, bl, blStok: bl.filter(adaBrg), blBiasa: bl.filter((r) => !adaBrg(r)), pg: v.Pengeluaran.filter((r) => dlm(r.Tanggal)) };
+  return { ps: v.Pesanan.filter((o) => dlm(o.Tanggal)), byr, bl, blStok: bl.filter(adaBrg), blBiasa: bl.filter((r) => !adaBrg(r)), pg: v.Pengeluaran.filter((r) => dlm(r.Tanggal)), py: v.Penyesuaian.filter((r) => dlm(r.Tanggal)) };
 }
 function labaRugi(d) {
   const pj = jml(d.ps, (o) => o.Total), modal = jml(d.ps, (o) => o.Modal), op = jml(d.ps, (o) => o.BiayaOperator);
-  const bahan = jml(d.blBiasa, biayaBeli), peng = jml(d.pg, (r) => r.Jumlah);
+  const bahan = jml(d.blBiasa, biayaBeli), peng = jml(d.pg, (r) => r.Jumlah), rugi = jml(d.py, (r) => r.Rugi || 0);
   const tanpa = d.ps.reduce((a, o) => a + o.Items.filter((i) => i.TanpaHPP).length, 0);
-  return { pj, modal, kotor: pj - modal, op, bahan, peng, bersih: pj - modal - op - bahan - peng, tanpa };
+  return { pj, modal, kotor: pj - modal, op, bahan, peng, rugi, bersih: pj - modal - op - bahan - peng - rugi, tanpa };
 }
 const R = (t, v, k, sub) => `<div class="lp ${k || ''}"><span>${t}${sub ? `<small>${sub}</small>` : ''}</span><span class="v">${v}</span></div>`;
 const JD = (t) => `<div class="lp judul"><span>${t}</span><span></span></div>`;
@@ -1632,13 +1666,14 @@ const gbox = (judul, svg) => `<div class="gbox"><h3>${judul}</h3>${svg}</div>`;
 function lapSummary(v) {
   const bln = LP.bln, out = [], ms = [];
   { const y = +bln.slice(0, 4), m = +bln.slice(5); for (let i = 5; i >= 0; i--) ms.push(ymd(new Date(y, m - 1 - i, 1)).slice(0, 7)); }
-  const ag = {}; ms.forEach((m) => { ag[m] = { pj: 0, modal: 0, op: 0, piu: 0, beli: 0, hutang: 0, bahan: 0, peng: 0 }; });
+  const ag = {}; ms.forEach((m) => { ag[m] = { pj: 0, modal: 0, op: 0, piu: 0, beli: 0, hutang: 0, bahan: 0, peng: 0, rugi: 0 }; });
   const idB = new Set(v.Barang.map((x) => x.ID));
   v.Pesanan.forEach((o) => { const a = ag[String(o.Tanggal).slice(0, 7)]; if (a) { a.pj += o.Total; a.modal += o.Modal; a.op += o.BiayaOperator; a.piu += Math.max(o.Total - o.Dibayar, 0); } });
   v.Belanja.forEach((r) => { const a = ag[String(r.Tanggal).slice(0, 7)]; if (a) { a.beli += r.Total; a.hutang += Math.max(r.Total - r.Dibayar, 0); if (!(r.BarangID && idB.has(r.BarangID))) a.bahan += r.Total; } });
   v.Pengeluaran.forEach((r) => { const a = ag[String(r.Tanggal).slice(0, 7)]; if (a) a.peng += Number(r.Jumlah) || 0; });
+  v.Penyesuaian.forEach((r) => { const a = ag[String(r.Tanggal).slice(0, 7)]; if (a) a.rugi += r.Rugi || 0; });
   const lbl = ms.map((m) => BLN3[+m.slice(5) - 1]), col = (f) => ms.map((m) => f(ag[m]));
-  const laba = col((a) => a.pj - a.modal), biaya = col((a) => a.op + a.bahan + a.peng), bersih = laba.map((x, i) => x - biaya[i]);
+  const laba = col((a) => a.pj - a.modal), biaya = col((a) => a.op + a.bahan + a.peng + a.rugi), bersih = laba.map((x, i) => x - biaya[i]);
   out.push(gbox('Laba', grafikKombo(lbl, [{ nama: 'Penjualan', warna: WARNA[3], data: col((a) => a.pj) }, { nama: 'Piutang', warna: WARNA[2], data: col((a) => a.piu) }], { nama: 'Laba', warna: WARNA[1], teks: '#b7950b', data: laba })));
   out.push(gbox('Laba Bersih', grafikKombo(lbl, [{ nama: 'Laba', warna: WARNA[1], data: laba }, { nama: 'Pengeluaran', warna: WARNA[2], data: biaya }], { nama: 'Laba Bersih', warna: WARNA[0], teks: '#1e8449', data: bersih })));
   out.push(gbox('Pembelian', grafikKombo(lbl, [{ nama: 'Pembelian', warna: WARNA[3], data: col((a) => a.beli) }, { nama: 'Hutang', warna: WARNA[2], data: col((a) => a.hutang) }], null)));
@@ -1651,7 +1686,9 @@ function lapSummary(v) {
   out.push(JD('RINGKASAN ' + bulanLabel(bln).toUpperCase()), R('Jumlah Nota', d.ps.length), R('Total Qty (pcs)', nf(jml(d.ps, (o) => o.Jumlah))), R('Penjualan', n0(L.pj)),
     R('Modal (HPP Barang Terjual)', '− ' + n0(L.modal), '', L.tanpa ? `${L.tanpa} item All-In belum punya HPP (bukan item stok / belum ada pembelian)` : 'HPP rata-rata tertimbang: harga beli + biaya travel'), R('Laba Kotor', warnaAngka(L.kotor), 'tebal'),
     R('Biaya Operator Mesin', '− ' + n0(L.op)), R('Bahan Habis Pakai', '− ' + n0(L.bahan), '', `${d.blBiasa.length} pembelian bahan biasa`),
-    ...perKat.map((g) => R('&nbsp;&nbsp;' + esc(g.k), '− ' + n0(g.a), '', `${g.n} catatan`)), R('LABA BERSIH', warnaAngka(L.bersih), 'tebal'),
+    ...perKat.map((g) => R('&nbsp;&nbsp;' + esc(g.k), '− ' + n0(g.a), '', `${g.n} catatan`)),
+    ...(L.rugi ? [R('Kerugian Stok (Rusak/Hilang)', '− ' + n0(L.rugi), '', `${d.py.filter((r) => r.Rugi).length} penyesuaian`)] : []),
+    R('LABA BERSIH', warnaAngka(L.bersih), 'tebal'),
     R('Uang Diterima', n0(jml(d.byr, (p) => p.Jumlah)), '', 'pembayaran yang tercatat pada bulan ini'));
   return out;
 }
@@ -1752,7 +1789,7 @@ function lapLabaBersih(v) {
     B('Persediaan Awal', n0(awal)), B('Pembelian', n0(beli), { sg: '+' }), B('Barang tersedia untuk dijual', n0(awal + beli), { k: 'in' }), B('Persediaan Akhir', n0(akhir), { k: 'in', sg: '−' }));
   if (koreksi) out.push(B('* Koreksi Stok', n0(koreksi), { k: 'in', sg: koreksi > 0 ? '+' : '−' }));
   out.push(B('Harga Pokok Penjualan', n0(L.modal), { k: 'tb' }), '<div style="height:14px"></div>', B('LABA KOTOR', warnaAngka(L.kotor), { k: 'gd' }), '<div style="height:10px"></div>');
-  out.push(B('Biaya Operator Mesin', n0(L.op)), B('Bahan Habis Pakai (tinta, film, dll)', n0(L.bahan)), ...perKat.map((g) => B(esc(g.k), n0(g.a))), B('Total Biaya', n0(L.op + L.bahan + L.peng), { k: 'tb' }), '<div style="height:14px"></div>', B('LABA BERSIH', warnaAngka(L.bersih), { k: 'gd' }));
+  out.push(B('Biaya Operator Mesin', n0(L.op)), B('Bahan Habis Pakai (tinta, film, dll)', n0(L.bahan)), ...perKat.map((g) => B(esc(g.k), n0(g.a))), ...(L.rugi ? [B('Kerugian Stok (Rusak/Hilang)', n0(L.rugi))] : []), B('Total Biaya', n0(L.op + L.bahan + L.peng + L.rugi), { k: 'tb' }), '<div style="height:14px"></div>', B('LABA BERSIH', warnaAngka(L.bersih), { k: 'gd' }));
   if (L.tanpa) out.push(`<div class="kosong">${L.tanpa} item All-In belum punya HPP, jadi modalnya dihitung 0 (bukan item stok / belum ada pembelian).</div>`);
   return out;
 }
@@ -1792,6 +1829,7 @@ function riwayatKejadian(v) {
     r.Bayar.forEach((p) => ev.push({ w: String(p.Tanggal).slice(0, 10) + ' 23:59:59', jam: false, a: 'BUAT', j: 'PEMBAYARAN HUTANG', d: `${String(p.Tanggal).slice(0, 10)} | ${p.Jumlah} | ← ${r.Bahan}, ${r.Tanggal}, ${r.Total}` }));
   });
   v.Pengeluaran.forEach((r) => ev.push({ w: String(r.Tanggal).slice(0, 10) + ' 00:00:00', jam: false, a: 'BUAT', j: 'PENGELUARAN', d: `${String(r.Tanggal).slice(0, 10)} | ${r.Jumlah} | ${r.Kategori || ''} ${r.Keterangan || ''}`.trim() }));
+  v.Penyesuaian.forEach((r) => ev.push({ w: String(r.Tanggal).slice(0, 10) + ' 00:00:01', jam: false, a: 'BUAT', j: 'PENYESUAIAN STOK', d: `${String(r.Tanggal).slice(0, 10)} | ${r.Jumlah > 0 ? '+' : ''}${r.Jumlah} pcs | ${r.Nama} | ${r.Alasan || ''}`.trim() }));
   logAktivitas.forEach((l) => ev.push({ w: l.w, jam: true, a: l.a, j: l.j, d: l.d }));
   return ev.map(p);
 }
@@ -1805,7 +1843,7 @@ function lapRiwayat(v) {
 }
 
 // --- pencatat aksi (UBAH / HAPUS / CETAK / BAGIKAN) ---
-const JENIS_SHEET = { Pesanan: 'PENJUALAN', Pelanggan: 'PELANGGAN', Barang: 'ITEM', Belanja: 'PEMBELIAN', Pengeluaran: 'PENGELUARAN' };
+const JENIS_SHEET = { Pesanan: 'PENJUALAN', Pelanggan: 'PELANGGAN', Barang: 'ITEM', Belanja: 'PEMBELIAN', Pengeluaran: 'PENGELUARAN', Penyesuaian: 'PENYESUAIAN STOK' };
 function catatLog(a, j, d) {
   const dt = new Date();
   logAktivitas.push({ w: hariIni() + ' ' + String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0') + ':' + String(dt.getSeconds()).padStart(2, '0'), a, j, d: d || '' });
@@ -1820,7 +1858,7 @@ function catatOp(op) {              // dipanggil sebelum aksi masuk antrean, sup
     else if (op.op === 'hapusBayarBeli') { const r = v.Belanja.find((x) => x.ID === op.belanjaId), b = r && r.Bayar.find((x) => x.ID === op.id); catatLog('HAPUS', 'PEMBAYARAN HUTANG', b ? `${String(b.Tanggal).slice(0, 10)} | ${b.Jumlah} | ← ${r.Bahan}, ${r.Tanggal}, ${r.Total}` : ''); }
     else if ((op.op === 'ubah' || op.op === 'hapus') && JENIS_SHEET[op.sheet]) {
       const lst = op.sheet === 'Pesanan' ? v.Pesanan : v[op.sheet], r = lst && lst.find((x) => x.ID === op.id);
-      const d = !r ? '' : op.sheet === 'Pesanan' ? ringkasNota(r) : op.sheet === 'Belanja' ? `${r.Tanggal} | ${r.Total} | ${r.Bahan}` : op.sheet === 'Pengeluaran' ? `${r.Tanggal} | ${r.Jumlah} | ${r.Kategori || ''} ${r.Keterangan || ''}`.trim() : (r.Nama || '');
+      const d = !r ? '' : op.sheet === 'Pesanan' ? ringkasNota(r) : op.sheet === 'Belanja' ? `${r.Tanggal} | ${r.Total} | ${r.Bahan}` : op.sheet === 'Pengeluaran' ? `${r.Tanggal} | ${r.Jumlah} | ${r.Kategori || ''} ${r.Keterangan || ''}`.trim() : op.sheet === 'Penyesuaian' ? `${r.Tanggal} | ${r.Jumlah > 0 ? '+' : ''}${r.Jumlah} pcs | ${r.Nama} | ${r.Alasan || ''}`.trim() : (r.Nama || '');
       catatLog(op.op === 'ubah' ? 'UBAH' : 'HAPUS', JENIS_SHEET[op.sheet], d);
     }
   } catch (e) {}
@@ -1896,6 +1934,7 @@ const ACT = {
   strip: () => { if (!S.cfg.url || !S.cfg.token) bukaTab('setting'); else sinkron(); },
   cariNota: () => { const r = $('n_carirow'), buka = r.style.display === 'none'; r.style.display = buka ? '' : 'none'; if (buka) $('n_cari').focus(); else { $('n_cari').value = ''; render(); } },
   menuNota: () => popup([{ a: 'menuBuka', d: 'pelanggan', t: 'Pelanggan' }, { a: 'menuBuka', d: 'pembelian', t: 'Pembelian' }, { a: 'menuBuka', d: 'pengeluaran', t: 'Pengeluaran' }]),
+  menuItem: () => popup([{ a: 'menuBuka', d: 'penyesuaian', t: 'Penyesuaian Stok' }]),
   menuBuka: (el) => bukaDaftar(el.dataset.d),
   filter: () => { $('fl_bulan').value = F.bulan; $('fl_status').value = F.status; $('dlgFilter').showModal(); },
   filterOK: () => { F.bulan = $('fl_bulan').value; F.status = $('fl_status').value; notaTampil = 0; $('dlgFilter').close(); render(); },
