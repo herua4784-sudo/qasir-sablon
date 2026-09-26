@@ -28,6 +28,7 @@
   .nrow .items { margin-top: 6px; }
   .nrow .irow { display: flex; justify-content: space-between; padding: 3px 0; font-size: 15px; }
   .nrow .irow .q { color: #333; font-weight: 600; flex: none; margin-left: 10px; }
+  .nrow .cat { font-size: 13.5px; color: #b45309; margin: 0 0 4px 0; font-style: italic; }
   .srow { display: flex; justify-content: space-between; align-items: center; padding: 13px 16px; border-bottom: 1px solid #e2e2e2; }
   .srow .nama { font-size: 16px; }
   .srow .q { font-size: 18px; font-weight: 700; flex: none; margin-left: 10px; }
@@ -136,8 +137,8 @@ function pindahTab(t) {
 function render() {
   const q = $('cari').value.trim().toLowerCase();
   if (TAB === 'pesanan') {
-    const arr = DATA.pesanan.filter((o) => !q || (o.pelanggan + ' ' + o.items.map((i) => i.nama).join(' ')).toLowerCase().indexOf(q) >= 0);
-    $('isi').innerHTML = arr.length ? arr.map((o) => `<div class="nrow"><div class="c1"><span class="nama">${esc(o.pelanggan || 'CASH')}</span><span class="tgl">${tglDMY(o.tanggal)}${o.jam ? ' ' + esc(o.jam) : ''}</span></div><div class="inv">${esc(o.invoice)}</div><div class="items">${o.items.map((i) => `<div class="irow"><span>${esc(i.nama)}</span><span class="q">${nf(i.jumlah)} ${esc(i.satuan)}</span></div>`).join('')}</div></div>`).join('')
+    const arr = DATA.pesanan.filter((o) => !q || (o.pelanggan + ' ' + o.items.map((i) => i.nama + ' ' + (i.catatan || '')).join(' ')).toLowerCase().indexOf(q) >= 0);
+    $('isi').innerHTML = arr.length ? arr.map((o) => `<div class="nrow"><div class="c1"><span class="nama">${esc(o.pelanggan || 'CASH')}</span><span class="tgl">${tglDMY(o.tanggal)}${o.jam ? ' ' + esc(o.jam) : ''}</span></div><div class="inv">${esc(o.invoice)}</div><div class="items">${o.items.map((i) => `<div class="irow"><span>${esc(i.nama)}</span><span class="q">${nf(i.jumlah)} ${esc(i.satuan)}</span></div>${i.catatan ? `<div class="cat">📝 ${esc(i.catatan)}</div>` : ''}`).join('')}</div></div>`).join('')
       : `<div class="kosong">${q ? 'Tidak ada pesanan yang cocok.' : 'Belum ada pesanan.'}</div>`;
   } else {
     const arr = DATA.stok.filter((s) => !q || s.nama.toLowerCase().indexOf(q) >= 0);
