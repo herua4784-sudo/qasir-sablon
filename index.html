@@ -214,6 +214,14 @@
   #popup button + button { border-top:1px solid #ddd; }
   #popup button:active { background:#f0f0f0; }
   dialog { border:0; padding:0; width:calc(100% - 36px); max-width:440px; box-shadow:0 8px 30px rgba(0,0,0,.4); color:#111; }
+  .dk-list { max-height:280px; overflow:auto; margin:10px 0; border-top:1px solid #e4e4e4; }
+  .dk-row { display:flex; align-items:center; justify-content:space-between; padding:11px 2px; border-bottom:1px solid #e4e4e4; }
+  .dk-row span { flex:1; cursor:pointer; font-size:16px; }
+  .dk-row button { background:none; border:0; padding:6px; color:#b91c1c; cursor:pointer; flex:none; }
+  .dk-row button svg { width:20px; height:20px; }
+  .dk-tambah { display:flex; gap:8px; margin-top:6px; }
+  .dk-tambah input { flex:1; }
+  .dk-tambah button { flex:none; padding:0 16px; background:#000; color:#fff; border:0; border-radius:6px; font-size:14px; cursor:pointer; }
   dialog::backdrop { background:rgba(0,0,0,.55); }
   .dl { padding:22px 22px 18px; }
   .dl h2 { margin:0 0 14px; font-size:26px; font-weight:500; }
@@ -465,6 +473,13 @@
   <div class="baris-tombol" style="margin-top:10px"><button class="bt putih" data-a="tutupDlg" style="width:100%">Tutup</button></div>
 </div></dialog>
 
+<dialog id="dlgKategori"><div class="dl">
+  <h2 id="dk_judul">Kelola Kategori</h2>
+  <div class="dk-list" id="dk_list"></div>
+  <div class="dk-tambah"><input id="dk_baru" placeholder="Kategori baru" autocomplete="off"><button data-a="tambahKat">Tambah</button></div>
+  <div class="baris-tombol" style="margin-top:16px"><button class="bt putih" data-a="tutupDlg" style="width:100%">Tutup</button></div>
+</div></dialog>
+
 <dialog id="dlgFilter"><div class="dl">
   <h2>Filter Penjualan</h2>
   <div class="fl"><label for="fl_bulan">Bulan</label><input id="fl_bulan" type="month"></div>
@@ -496,7 +511,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.10', API_MIN = 12;
+const VERSI = '5.11', API_MIN = 12;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -538,6 +553,7 @@ const IC = {
   add: '<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>',
   cek: '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>',
   tutup: '<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>',
+  kat: '<path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/>',
   salin: '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>',
   hapus: '<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>',
   cetak: '<path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/>',
@@ -617,6 +633,8 @@ function tampilan() {
   (s.Pembayaran || []).forEach((p) => { (bayar[p.PesananID] = bayar[p.PesananID] || []).push({ ...p }); });
   (s.PembayaranBeli || []).forEach((p) => { (bayarBeli[p.BelanjaID] = bayarBeli[p.BelanjaID] || []).push({ ...p }); });
   (s.Setelan || []).forEach((r) => { cfg[r.Kunci] = String(r.Nilai == null ? '' : r.Nilai); });
+  if (cfg.katPengeluaran) { try { const a = JSON.parse(cfg.katPengeluaran); if (Array.isArray(a) && a.length) { KAT_KELUAR.length = 0; KAT_KELUAR.push(...a); } } catch (e) {} }
+  if (cfg.katPembelian) { try { const a = JSON.parse(cfg.katPembelian); if (Array.isArray(a) && a.length) { KAT_BELI.length = 0; KAT_BELI.push(...a); } } catch (e) {} }
   // Indeks ID dibuat hanya bila ada antrean (pencarian O(1), bukan menelusuri seluruh daftar tiap aksi).
   const mapDari = new Map();
   const cari = (l, id) => { let m = mapDari.get(l); if (!m) { m = new Map(l.map((x) => [x.ID, x])); mapDari.set(l, m); } return m.get(id); };
@@ -1323,8 +1341,8 @@ function salinNota(id) {
 }
 
 // ---------- daftar umum: pelanggan, item, pembelian, pengeluaran ----------
-const KAT_BELI = ['Gelas', 'Tinta', 'Kertas transfer/film', 'Bahan kimia', 'Lainnya'];
-const KAT_KELUAR = ['Gaji', 'Sewa Gudang', 'Listrik', 'Air', 'Internet', 'Transport', 'Lainnya'];
+let KAT_BELI = ['Gelas', 'Tinta', 'Kertas transfer/film', 'Bahan kimia', 'Lainnya'];
+let KAT_KELUAR = ['Gaji', 'Sewa Gudang', 'Listrik', 'Air', 'Internet', 'Transport', 'Lainnya'];
 const stokBarang = (id) => lihat().stok[id] || { stok: 0, avg: 0, nilai: 0, terakhir: 0 };
 const biayaBeli = (r) => (Number(r.TotalHarga) || 0) + (Number(r.BiayaTravel) || 0);
 let pembBarangId = '';
@@ -1362,7 +1380,7 @@ const CRUD = {
       { k: 'TravelPerDus', l: 'Biaya Travel per Dus (Rp)', t: 'number', g: 'stok', h: 'Sesuai kesepakatan dengan sopir travel, mis. 17.000 atau 20.000 per dus.' },
       { k: '_hpp', t: 'info', g: 'stok' },
       // --- bahan biasa (tinta, film, dll) ---
-      { k: 'Kategori', l: 'Kategori', t: 'sel', o: KAT_BELI, g: 'biasa' },
+      { k: 'Kategori', l: 'Kategori', t: 'dl', o: KAT_BELI, g: 'biasa', kat: 'pembelian' },
       { k: 'Jumlah', l: 'Jumlah', t: 'number', g: 'biasa' },
       { k: 'Satuan', l: 'Satuan', g: 'biasa', def: 'pcs' },
       { k: 'TotalHarga', l: 'Total Harga (Rp)', t: 'number', g: 'biasa' },
@@ -1381,7 +1399,7 @@ const CRUD = {
     } },
   pengeluaran: { sheet: 'Pengeluaran', judul: 'Pengeluaran', tambah: 'Tambah Pengeluaran', ubah: 'Ubah Pengeluaran', tgl: true,
     f: [{ k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' }, { k: 'Keterangan', l: 'Keterangan', w: 1 },
-      { k: 'Kategori', l: 'Kategori (Gaji, Sewa Gudang, Listrik, dll)', t: 'dl', o: KAT_KELUAR },
+      { k: 'Kategori', l: 'Kategori (Gaji, Sewa Gudang, Listrik, dll)', t: 'dl', o: KAT_KELUAR, kat: 'pengeluaran' },
       { k: 'Jumlah', l: 'Jumlah (Rp)', t: 'number', w: 1, pos: 1 }, { k: 'Catatan', l: 'Catatan (Opsional)' }],
     cari: (r) => [r.Keterangan, r.Kategori, r.Catatan].join(' '), urut: (a, b) => String(b.Tanggal).localeCompare(String(a.Tanggal)),
     baris: (r) => `<div class="cb"><div class="c1"><span>${esc(r.Keterangan)}</span><span class="r">${n0(r.Jumlah)}</span></div><div class="c2">${tglDMY(r.Tanggal)} · ${esc(r.Kategori || '')}${r.Catatan ? ' · ' + esc(r.Catatan) : ''}</div></div>` },
@@ -1429,7 +1447,8 @@ function bukaForm(nama, id) {
       inp = `<input id="ff_${f.k}" type="${f.t === 'number' ? 'number' : f.t === 'dl' ? 'text' : f.t || 'text'}"${f.t === 'number' ? ' inputmode="decimal" min="0" step="any"' : ''}${f.t === 'tel' ? ' inputmode="tel"' : ''}${daftar ? ` list="dl_f_${f.k}"` : ''} value="${esc(v)}" autocomplete="off">`
         + (daftar ? `<datalist id="dl_f_${f.k}">${daftar.map((o) => `<option value="${esc(o)}"></option>`).join('')}</datalist>` : '');
     }
-    return `<div class="fl"${gAttr}><label for="ff_${f.k}">${esc(f.l)}</label>${f.wa ? `<div class="dgn">${inp}<button class="ikon-tombol" data-a="wa" data-src="ff_${f.k}" aria-label="Buka WhatsApp">${svg('wa')}</button></div>` : inp}${f.h ? `<div class="petunjuk">${esc(f.h)}</div>` : ''}</div>`;
+    const ekor = f.wa ? `<button class="ikon-tombol" data-a="wa" data-src="ff_${f.k}" aria-label="Buka WhatsApp">${svg('wa')}</button>` : f.kat ? `<button class="ikon-tombol" data-a="bukaKelolaKat" data-src="ff_${f.k}" data-list="${f.kat}" aria-label="Kelola kategori">${svg('kat')}</button>` : '';
+    return `<div class="fl"${gAttr}><label for="ff_${f.k}">${esc(f.l)}</label>${ekor ? `<div class="dgn">${inp}${ekor}</div>` : inp}${f.h ? `<div class="petunjuk">${esc(f.h)}</div>` : ''}</div>`;
   }).join('') + (c.info && r ? c.info(r) : '') + (nama === 'pembelian' && r ? infoHutangBeli(r) : '');
   if (nama === 'pembelian') pasangPembelian(r);
   if (nama === 'penyesuaian') pasangPenyesuaian(r);
@@ -1446,6 +1465,26 @@ function pasangPenyesuaian(r) {
     el.innerHTML = `Stok saat ini: <b>${nf(s.stok)} pcs</b> · HPP rata-rata: <b>${s.avg ? n0(Math.round(s.avg)) : '-'}</b>/pcs`;
   }
   g('Nama').addEventListener('input', segar); g('Nama').addEventListener('change', segar); segar();
+}
+// ---------- kelola kategori (Pengeluaran & Pembelian): tambah/hapus, tersimpan di Setelan ----------
+let KAT_TARGET = null;
+function daftarKat(nama) { return nama === 'pengeluaran' ? KAT_KELUAR : KAT_BELI; }
+function simpanKatList(nama) { antre({ op: 'setel', key: nama === 'pengeluaran' ? 'katPengeluaran' : 'katPembelian', value: JSON.stringify(daftarKat(nama)) }); }
+function bukaKelolaKat(el) {
+  KAT_TARGET = { list: el.dataset.list, fieldId: el.dataset.src };
+  $('dk_judul').textContent = 'Kategori ' + (KAT_TARGET.list === 'pengeluaran' ? 'Pengeluaran' : 'Pembelian');
+  $('dk_baru').value = ''; renderKatList();
+  if (!$('dlgKategori').open) $('dlgKategori').showModal();
+}
+function renderKatList() {
+  const arr = daftarKat(KAT_TARGET.list);
+  $('dk_list').innerHTML = arr.length ? arr.map((k, i) => `<div class="dk-row"><span data-a="pilihKat" data-i="${i}">${esc(k)}</span><button data-a="hapusKat" data-i="${i}" aria-label="Hapus kategori ${esc(k)}">${svg('hapus')}</button></div>`).join('') : '<div class="kosong">Belum ada kategori.</div>';
+}
+function tambahKatBaru() {
+  const v = $('dk_baru').value.trim(); if (!v) return;
+  const arr = daftarKat(KAT_TARGET.list);
+  if (!arr.some((k) => k.toLowerCase() === v.toLowerCase())) { arr.push(v); simpanKatList(KAT_TARGET.list); }
+  $('dk_baru').value = ''; renderKatList();
 }
 function infoHutangBeli(r) {
   const sisa = Math.max(r.Total - r.Dibayar, 0);
@@ -1515,6 +1554,8 @@ function okForm() {
     if (kembar) salah = c.unik + ' ini sudah ada.';
   }
   if (salah) { pesan(salah, 3500); return; }
+  if (crudAktif === 'pengeluaran' && row.Kategori && !KAT_KELUAR.some((k) => k.toLowerCase() === row.Kategori.toLowerCase())) { KAT_KELUAR.push(row.Kategori); simpanKatList('pengeluaran'); }
+  if (crudAktif === 'pembelian' && row.Kategori && row.Kategori !== 'Item Stok' && !KAT_BELI.some((k) => k.toLowerCase() === row.Kategori.toLowerCase())) { KAT_BELI.push(row.Kategori); simpanKatList('pembelian'); }
   if (crudEditId) antre({ op: 'ubah', sheet: c.sheet, id: crudEditId, row }); else antre({ op: 'add', sheet: c.sheet, row: { ID: uid(), ...row } });
   tutupLayar(); pesan('Tersimpan', 1800);
 }
@@ -1967,6 +2008,10 @@ const ACT = {
   bayarLunas: () => simpanBayar(true), bayarSimpan: () => simpanBayar(false), bayarHapus: (el) => hapusBayar(el.dataset.id),
   bukaBayarBeli: (el) => bukaBayarBeli(el.dataset.id), bayarBeliLunas: () => simpanBayarBeli(true), bayarBeliSimpan: () => simpanBayarBeli(false), bayarBeliHapus: (el) => hapusBayarBeliUI(el.dataset.id),
   tutupDlg: (el) => el.closest('dialog').close(),
+  bukaKelolaKat: (el) => bukaKelolaKat(el),
+  pilihKat: (el) => { $(KAT_TARGET.fieldId).value = daftarKat(KAT_TARGET.list)[+el.dataset.i]; $('dlgKategori').close(); },
+  hapusKat: (el) => { const arr = daftarKat(KAT_TARGET.list), nilai = arr[+el.dataset.i]; if (!confirm(`Hapus kategori "${nilai}"?`)) return; arr.splice(+el.dataset.i, 1); simpanKatList(KAT_TARGET.list); renderKatList(); },
+  tambahKat: () => tambahKatBaru(),
   crudBaru: (el) => bukaForm(el.dataset.c || crudAktif, null),
   crudEdit: (el) => { if (el.dataset.c === 'barang' && brgSelMode) { toggleBrgSel(el.dataset.id); return; } bukaForm(el.dataset.c, el.dataset.id); },
   brgAksiHapus: (el) => { tutupAksi(); brgHapusSatu(el.dataset.id); }, brgAksiPilih: (el) => { tutupAksi(); brgSelMode = true; brgSelSet.add(el.dataset.id); renderItemTab(lihat()); }, brgPilihSemua: () => pilihSemuaBrg(), brgHapusSel: () => hapusBrgTerpilih(), brgBatalPilih: () => { brgSelMode = false; brgSelSet.clear(); renderItemTab(lihat()); },
@@ -2055,6 +2100,7 @@ if (window.matchMedia && matchMedia('(pointer: coarse)').matches) {
 // ---------- input ----------
 const tunda = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 $('n_cari').addEventListener('input', tunda(() => { notaTampil = 0; renderNota(lihat()); }, 150));
+$('dk_baru').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tambahKatBaru(); } });
 $('ci_cari').addEventListener('input', tunda(() => { $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null); }, 150));
 $('cl_cari').addEventListener('input', tunda(() => { $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan')); }, 150));
 $('cl_bulan').addEventListener('change', () => { $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan')); });
