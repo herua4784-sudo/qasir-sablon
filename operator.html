@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Qasir Sablon Gelas - Operator</title>
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: -apple-system, Roboto, Segoe UI, Arial, sans-serif; background: #f4f4f4; color: #111; overscroll-behavior: none; }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; background: #fff; }
+  .bar { flex: none; background: #000; color: #fff; display: flex; align-items: center; min-height: calc(56px + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); padding: env(safe-area-inset-top, 0px) 8px 0; }
+  .bar .jdl { flex: 1; font-size: 19px; font-weight: 600; padding-left: 8px; }
+  .bar button { background: none; border: 0; color: #fff; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; flex: none; }
+  .bar button svg { width: 24px; height: 24px; fill: currentColor; }
+  .cari { padding: 10px 14px; border-bottom: 2px solid #111; flex: none; }
+  .cari input { width: 100%; border: 0; border-bottom: 2px solid #999; padding: 8px 2px; font-size: 16px; font-family: inherit; outline: none; }
+  .isi { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding-bottom: 24px; }
+  .kosong { padding: 40px 20px; text-align: center; color: #888; font-size: 15px; }
+  .nrow { padding: 12px 16px; border-bottom: 1px solid #e2e2e2; }
+  .nrow .c1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .nrow .nama { font-size: 16.5px; font-weight: 600; }
+  .nrow .tgl { font-size: 13px; color: #777; white-space: nowrap; }
+  .nrow .inv { font-size: 12.5px; color: #999; margin-top: 1px; }
+  .nrow .items { margin-top: 6px; }
+  .nrow .irow { display: flex; justify-content: space-between; padding: 3px 0; font-size: 15px; }
+  .nrow .irow .q { color: #333; font-weight: 600; flex: none; margin-left: 10px; }
+  .srow { display: flex; justify-content: space-between; align-items: center; padding: 13px 16px; border-bottom: 1px solid #e2e2e2; }
+  .srow .nama { font-size: 16px; }
+  .srow .q { font-size: 18px; font-weight: 700; flex: none; margin-left: 10px; }
+  .srow .q.min { color: #d32f2f; }
+  .tabs { display: flex; flex: none; background: #000; }
+  .tabs button { flex: 1; background: none; border: 0; color: #aaa; padding: 10px 4px calc(10px + env(safe-area-inset-bottom, 0px)); font-size: 13px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; }
+  .tabs button.on { color: #fff; }
+  .tabs svg { width: 22px; height: 22px; fill: currentColor; }
+  .setup { padding: 24px 20px; }
+  .setup h2 { font-size: 19px; margin: 0 0 6px; }
+  .setup p { color: #666; font-size: 14.5px; line-height: 1.5; }
+  .setup label { display: block; font-size: 13.5px; color: #555; margin: 16px 0 4px; }
+  .setup input { width: 100%; padding: 11px 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit; }
+  .setup button.simpan { margin-top: 20px; width: 100%; padding: 13px; background: #000; color: #fff; border: 0; border-radius: 8px; font-size: 15.5px; font-weight: 600; cursor: pointer; }
+  .setup .err { color: #d32f2f; font-size: 13.5px; margin-top: 10px; min-height: 18px; }
+  .status { flex: none; text-align: center; font-size: 12.5px; padding: 5px; color: #666; background: #f0f0f0; }
+  .status.err { color: #b91c1c; background: #fde8e8; }
+  .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: #222; color: #fff; padding: 9px 16px; border-radius: 20px; font-size: 13.5px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; max-width: 85vw; text-align: center; }
+  .toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="l_setup" class="setup" style="display:none">
+    <h2>Hubungkan ke Data Toko</h2>
+    <p>Minta pemilik toko memberi <b>URL Apps Script</b> dan <b>Kode Operator</b> (bukan kode rahasia pemilik). Isi sekali saja di HP ini.</p>
+    <label for="s_url">URL Apps Script</label>
+    <input id="s_url" type="text" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" autocapitalize="off">
+    <label for="s_kode">Kode Operator</label>
+    <input id="s_kode" type="text" placeholder="Kode dari pemilik toko" autocomplete="off" autocapitalize="off">
+    <button class="simpan" onclick="simpanSetup()">Hubungkan</button>
+    <div class="err" id="s_err"></div>
+  </div>
+  <div id="l_main" style="display:none; flex:1; min-height:0; display:flex; flex-direction:column;">
+    <div class="bar">
+      <div class="jdl" id="judul">Pesanan</div>
+      <button onclick="segarkan(true)" aria-label="Muat ulang"><svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></button>
+      <button onclick="bukaSetup()" aria-label="Pengaturan"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+    </div>
+    <div class="status" id="status" style="display:none"></div>
+    <div class="cari"><input id="cari" type="search" placeholder="Cari" autocomplete="off"></div>
+    <div class="isi" id="isi"></div>
+    <div class="tabs">
+      <button class="tb on" data-t="pesanan" onclick="pindahTab('pesanan')">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 14H7v-2h10v2zm0-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+        <span>Pesanan</span>
+      </button>
+      <button class="tb" data-t="stok" onclick="pindahTab('stok')">
+        <svg viewBox="0 0 24 24"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zM18 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+        <span>Stok</span>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const K_CFG = 'qsg_op_cfg', K_DATA = 'qsg_op_data';
+let CFG = null, DATA = { pesanan: [], stok: [] }, TAB = 'pesanan', WAKTU = null;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nf = (x) => new Intl.NumberFormat('id-ID').format(Number(x) || 0);
+function tglDMY(s) { const t = String(s || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t.slice(8, 10) + '/' + t.slice(5, 7) + '/' + t.slice(0, 4) : t; }
+function toast(t, ms) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('on'), ms || 3000); }
+
+function muatCfg() { try { CFG = JSON.parse(localStorage.getItem(K_CFG) || 'null'); } catch (e) { CFG = null; } try { DATA = JSON.parse(localStorage.getItem(K_DATA) || 'null') || DATA; } catch (e) {} }
+function simpanCfgLokal() { try { localStorage.setItem(K_CFG, JSON.stringify(CFG)); } catch (e) {} }
+function simpanDataLokal() { try { localStorage.setItem(K_DATA, JSON.stringify(DATA)); } catch (e) {} }
+
+function bukaSetup() {
+  $('l_main').style.display = 'none'; $('l_setup').style.display = 'block';
+  $('s_url').value = (CFG && CFG.url) || ''; $('s_kode').value = (CFG && CFG.token) || ''; $('s_err').textContent = '';
+}
+function simpanSetup() {
+  const url = $('s_url').value.trim(), token = $('s_kode').value.trim();
+  if (!url || !token) { $('s_err').textContent = 'Isi URL dan Kode Operator.'; return; }
+  CFG = { url, token }; simpanCfgLokal();
+  $('l_setup').style.display = 'none'; $('l_main').style.display = 'flex';
+  segarkan(true);
+}
+async function panggil(body) {
+  const r = await fetch(CFG.url, { method: 'POST', body: JSON.stringify({ ...body, token: CFG.token }) });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || 'Gagal mengambil data');
+  return j;
+}
+async function segarkan(manual) {
+  if (!CFG) { bukaSetup(); return; }
+  const st = $('status'); st.style.display = ''; st.classList.remove('err'); st.textContent = 'Memuat data…';
+  try {
+    const j = await panggil({ action: 'dataOperator' });
+    DATA = { pesanan: j.pesanan || [], stok: j.stok || [] }; WAKTU = new Date();
+    simpanDataLokal();
+    st.textContent = 'Data sampai ' + WAKTU.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    render();
+  } catch (e) {
+    st.classList.add('err'); st.textContent = 'Gagal memuat: ' + e.message + (manual ? '' : ' (menampilkan data terakhir)');
+    render();
+  }
+}
+function pindahTab(t) {
+  TAB = t; document.querySelectorAll('.tabs .tb').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
+  $('judul').textContent = t === 'pesanan' ? 'Pesanan' : 'Stok Gelas';
+  $('cari').placeholder = t === 'pesanan' ? 'Cari nama pemesan atau item' : 'Cari nama item';
+  $('cari').value = ''; render();
+}
+function render() {
+  const q = $('cari').value.trim().toLowerCase();
+  if (TAB === 'pesanan') {
+    const arr = DATA.pesanan.filter((o) => !q || (o.pelanggan + ' ' + o.items.map((i) => i.nama).join(' ')).toLowerCase().indexOf(q) >= 0);
+    $('isi').innerHTML = arr.length ? arr.map((o) => `<div class="nrow"><div class="c1"><span class="nama">${esc(o.pelanggan || 'CASH')}</span><span class="tgl">${tglDMY(o.tanggal)}${o.jam ? ' ' + esc(o.jam) : ''}</span></div><div class="inv">${esc(o.invoice)}</div><div class="items">${o.items.map((i) => `<div class="irow"><span>${esc(i.nama)}</span><span class="q">${nf(i.jumlah)} ${esc(i.satuan)}</span></div>`).join('')}</div></div>`).join('')
+      : `<div class="kosong">${q ? 'Tidak ada pesanan yang cocok.' : 'Belum ada pesanan.'}</div>`;
+  } else {
+    const arr = DATA.stok.filter((s) => !q || s.nama.toLowerCase().indexOf(q) >= 0);
+    $('isi').innerHTML = arr.length ? arr.map((s) => `<div class="srow"><span class="nama">${esc(s.nama)}</span><span class="q${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div>`).join('')
+      : `<div class="kosong">${q ? 'Tidak ada item yang cocok.' : 'Belum ada item.'}</div>`;
+  }
+}
+$('cari').addEventListener('input', () => { let t; clearTimeout(render._t); render._t = setTimeout(render, 120); });
+
+muatCfg();
+if (CFG && CFG.url && CFG.token) { $('l_main').style.display = 'flex'; render(); segarkan(false); }
+else bukaSetup();
+window.addEventListener('online', () => segarkan(false));
+if ('serviceWorker' in navigator) { /* halaman operator sengaja tanpa service worker: selalu ambil data terbaru saat online */ }
+</script>
+</body>
+</html>
