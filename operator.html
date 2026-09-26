@@ -6,6 +6,7 @@
 <title>Qasir Sablon Gelas - Operator</title>
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest-operator.json">
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -242,7 +243,7 @@ terapkanQueueOptimis();
 if (CFG && CFG.url && CFG.token) { $('l_main').style.display = 'flex'; render(); updateStatus(); segarkan(false); }
 else bukaSetup();
 window.addEventListener('online', () => segarkan(false));
-if ('serviceWorker' in navigator) { /* halaman operator sengaja tanpa service worker: selalu ambil data terbaru saat online */ }
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw-operator.js', { scope: './operator.html' }).catch(() => {});
 </script>
 </body>
 </html>
