@@ -205,7 +205,7 @@ function render() {
   const q = $('cari').value.trim().toLowerCase();
   if (TAB === 'pesanan') {
     const arr = DATA.pesanan.filter((o) => !q || (o.pelanggan + ' ' + o.items.map((i) => i.nama + ' ' + (i.catatan || '')).join(' ')).toLowerCase().indexOf(q) >= 0);
-    $('isi').innerHTML = arr.length ? arr.map((o) => `<div class="nrow"><div class="av">${esc(ini(o.pelanggan))}</div><div class="nb"><div class="l1"><span class="nm">${esc(o.pelanggan || 'CASH')}</span><span class="inv">${esc(o.invoice)}</span></div><div class="l2">${tglDMY(o.tanggal)}${o.jam ? ' ' + esc(o.jam) : ''}</div><div class="items">${o.items.map((i) => `<div class="irow"><span>${esc(i.nama)}</span><span class="q">${nf(i.jumlah)} ${esc(i.satuan)}</span></div>${i.catatan ? `<div class="cat">📝 ${esc(i.catatan)}</div>` : ''}`).join('')}</div></div></div>`).join('')
+    $('isi').innerHTML = arr.length ? arr.map((o) => `<div class="nrow"><div class="av">${esc(ini(o.pelanggan))}</div><div class="nb"><div class="l1"><span class="nm">${esc(o.pelanggan || 'CASH')}</span></div><div class="l2">${tglDMY(o.tanggal)}${o.jam ? ' ' + esc(o.jam) : ''}</div><div class="items">${o.items.map((i) => `<div class="irow"><span>${esc(i.nama)}</span><span class="q">${nf(i.jumlah)} ${esc(i.satuan)}</span></div>${i.catatan ? `<div class="cat">📝 ${esc(i.catatan)}</div>` : ''}`).join('')}</div></div></div>`).join('')
       : `<div class="kosong">${q ? 'Tidak ada pesanan yang cocok.' : 'Belum ada pesanan.'}</div>`;
   } else {
     const arr = DATA.stok.filter((s) => !q || s.nama.toLowerCase().indexOf(q) >= 0);
