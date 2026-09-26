@@ -32,7 +32,8 @@
   .nrow .irow { display: flex; justify-content: space-between; padding: 3px 0; font-size: 15.5px; color: #333; }
   .nrow .irow .q { font-weight: 700; flex: none; margin-left: 10px; }
   .nrow .cat { font-size: 13.5px; color: #b45309; margin: 0 0 4px 0; font-style: italic; }
-  .crow { display: flex; gap: 14px; padding: 13px 16px; border-bottom: 1px solid #dcdcdc; align-items: center; }
+  .crow { display: flex; gap: 14px; padding: 13px 16px; border-bottom: 1px solid #dcdcdc; align-items: center; cursor: pointer; }
+  .crow:active { background: #f3f3f3; }
   .crow .cb { flex: 1; min-width: 0; }
   .crow .c1 { font-size: 17px; display: flex; justify-content: space-between; gap: 10px; }
   .crow .c1 .r { font-weight: 700; white-space: nowrap; }
@@ -51,6 +52,16 @@
   .status { flex: none; text-align: center; font-size: 12.5px; padding: 5px; color: #666; background: #f0f0f0; }
   .status.err { color: #b91c1c; background: #fde8e8; }
   .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: #222; color: #fff; padding: 9px 16px; border-radius: 20px; font-size: 13.5px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; max-width: 85vw; text-align: center; }
+  #l_peny { position: fixed; inset: 0; max-width: 520px; margin: 0 auto; background: #fff; display: none; flex-direction: column; z-index: 20; }
+  #l_peny.on { display: flex; }
+  .form { padding: 16px; overflow: auto; flex: 1; }
+  .form label { display: block; font-size: 13.5px; color: #555; margin: 16px 0 4px; }
+  .form label:first-child { margin-top: 0; }
+  .form input, .form select { width: 100%; padding: 11px 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit; background: #fff; }
+  .form .info { background: #f3f3f3; border-radius: 8px; padding: 10px 12px; font-size: 14px; color: #444; }
+  .form button.simpan { margin-top: 22px; width: 100%; padding: 13px; background: #000; color: #fff; border: 0; border-radius: 8px; font-size: 15.5px; font-weight: 600; cursor: pointer; }
+  .form button.simpan:disabled { opacity: .5; }
+  .form .err { color: #d32f2f; font-size: 13.5px; margin-top: 10px; min-height: 18px; }
   .toast.on { opacity: 1; }
 </style>
 </head>
@@ -85,6 +96,30 @@
         <span>Stok</span>
       </button>
     </div>
+  </div>
+</div>
+<div id="l_peny">
+  <div class="bar"><button onclick="tutupPeny()" aria-label="Tutup"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button><div class="jdl">Catat Penyesuaian</div></div>
+  <div class="form">
+    <label>Nama Item</label>
+    <div class="info" id="pn_nama">-</div>
+    <label for="pn_arah">Arah</label>
+    <select id="pn_arah">
+      <option value="kurang">Stok Berkurang (rusak/hilang/kurang)</option>
+      <option value="tambah">Stok Bertambah (koreksi lebih)</option>
+    </select>
+    <label for="pn_jml">Jumlah (pcs)</label>
+    <input id="pn_jml" type="number" inputmode="numeric" min="0">
+    <label for="pn_tgl">Tanggal</label>
+    <input id="pn_tgl" type="date">
+    <label for="pn_alasan">Alasan</label>
+    <select id="pn_alasan">
+      <option>Rusak</option><option>Hilang</option><option>Koreksi Hitung</option><option>Lainnya</option>
+    </select>
+    <label for="pn_cat">Catatan (Opsional)</label>
+    <input id="pn_cat" autocomplete="off">
+    <button class="simpan" id="pn_simpan" onclick="simpanPeny()">Simpan</button>
+    <div class="err" id="pn_err"></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -147,11 +182,37 @@ function render() {
       : `<div class="kosong">${q ? 'Tidak ada pesanan yang cocok.' : 'Belum ada pesanan.'}</div>`;
   } else {
     const arr = DATA.stok.filter((s) => !q || s.nama.toLowerCase().indexOf(q) >= 0);
-    $('isi').innerHTML = arr.length ? arr.map((s) => `<div class="crow"><div class="cb"><div class="c1"><span>${esc(s.nama)}</span><span class="r${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div></div></div>`).join('')
+    $('isi').innerHTML = arr.length ? arr.map((s) => `<div class="crow" onclick="bukaPeny('${s.id}')"><div class="cb"><div class="c1"><span>${esc(s.nama)}</span><span class="r${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div></div></div>`).join('')
       : `<div class="kosong">${q ? 'Tidak ada item yang cocok.' : 'Belum ada item.'}</div>`;
   }
 }
 $('cari').addEventListener('input', () => { let t; clearTimeout(render._t); render._t = setTimeout(render, 120); });
+
+let PN_ID = null;
+function hariIni() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function bukaPeny(id) {
+  const s = DATA.stok.find((x) => x.id === id); if (!s) return;
+  PN_ID = id;
+  $('pn_nama').textContent = `${s.nama} — stok saat ini ${nf(s.stok)} ${s.satuan}`;
+  $('pn_arah').value = 'kurang'; $('pn_jml').value = ''; $('pn_tgl').value = hariIni(); $('pn_alasan').value = 'Rusak'; $('pn_cat').value = ''; $('pn_err').textContent = '';
+  $('l_peny').classList.add('on');
+}
+function tutupPeny() { $('l_peny').classList.remove('on'); PN_ID = null; }
+async function simpanPeny() {
+  const mag = Number($('pn_jml').value) || 0;
+  if (!(mag > 0)) { $('pn_err').textContent = 'Isi jumlah lebih dari 0.'; return; }
+  const jumlah = $('pn_arah').value === 'tambah' ? mag : -mag;
+  const btn = $('pn_simpan'); btn.disabled = true; btn.textContent = 'Menyimpan…'; $('pn_err').textContent = '';
+  try {
+    const j = await panggil({ action: 'tambahPenyesuaian', barangId: PN_ID, tanggal: $('pn_tgl').value || hariIni(), jumlah, alasan: $('pn_alasan').value, catatan: $('pn_cat').value.trim() });
+    if (j.data) { DATA = { pesanan: j.data.pesanan || [], stok: j.data.stok || [] }; simpanDataLokal(); }
+    tutupPeny(); render(); toast('Penyesuaian tersimpan ✓');
+  } catch (e) {
+    $('pn_err').textContent = 'Gagal menyimpan: ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Simpan';
+  }
+}
 
 muatCfg();
 if (CFG && CFG.url && CFG.token) { $('l_main').style.display = 'flex'; render(); segarkan(false); }
