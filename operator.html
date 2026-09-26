@@ -11,7 +11,8 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; margin: 0; }
   body { font-family: -apple-system, Roboto, Segoe UI, Arial, sans-serif; background: #f4f4f4; color: #111; overscroll-behavior: none; }
-  #app { position: fixed; inset: 0; display: flex; flex-direction: column; background: #fff; }
+  body { background: #ececec; }
+  #app { position: fixed; top: 0; bottom: 0; left: 0; right: 0; max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; background: #fff; box-shadow: 0 0 0 1px #c4c4c4; }
   .bar { flex: none; background: #000; color: #fff; display: flex; align-items: center; min-height: calc(56px + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); padding: env(safe-area-inset-top, 0px) 8px 0; }
   .bar .jdl { flex: 1; font-size: 19px; font-weight: 600; padding-left: 8px; }
   .bar button { background: none; border: 0; color: #fff; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; flex: none; }
@@ -20,7 +21,7 @@
   .cari input { width: 100%; border: 0; border-bottom: 2px solid #999; padding: 8px 2px; font-size: 16px; font-family: inherit; outline: none; }
   .isi { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding-bottom: 24px; }
   .kosong { padding: 40px 20px; text-align: center; color: #888; font-size: 15px; }
-  .nrow { display: flex; gap: 14px; padding: 14px 16px 12px; border-bottom: 1px solid #d9d9d9; }
+  .nrow { display: flex; gap: 14px; padding: 14px 16px 12px; border-bottom: 1px solid #d9d9d9; align-items: center; }
   .nrow .av { width: 44px; height: 44px; border-radius: 50%; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; flex: none; }
   .nrow .nb { flex: 1; min-width: 0; }
   .nrow .l1 { display: flex; gap: 10px; align-items: baseline; white-space: nowrap; overflow: hidden; }
