@@ -124,8 +124,8 @@
 </div>
 <div class="toast" id="toast"></div>
 <script>
-const K_CFG = 'qsg_op_cfg', K_DATA = 'qsg_op_data';
-let CFG = null, DATA = { pesanan: [], stok: [] }, TAB = 'pesanan', WAKTU = null;
+const K_CFG = 'qsg_op_cfg', K_DATA = 'qsg_op_data', K_QUEUE = 'qsg_op_queue';
+let CFG = null, DATA = { pesanan: [], stok: [] }, QUEUE = [], TAB = 'pesanan', WAKTU = null, sedangFlush = false;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = (x) => new Intl.NumberFormat('id-ID').format(Number(x) || 0);
@@ -133,9 +133,13 @@ const ini = (nama) => { const t = String(nama || '').trim(); if (!t) return '?';
 function tglDMY(s) { const t = String(s || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t.slice(8, 10) + '/' + t.slice(5, 7) + '/' + t.slice(0, 4) : t; }
 function toast(t, ms) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('on'), ms || 3000); }
 
-function muatCfg() { try { CFG = JSON.parse(localStorage.getItem(K_CFG) || 'null'); } catch (e) { CFG = null; } try { DATA = JSON.parse(localStorage.getItem(K_DATA) || 'null') || DATA; } catch (e) {} }
+function muatCfg() { try { CFG = JSON.parse(localStorage.getItem(K_CFG) || 'null'); } catch (e) { CFG = null; } try { DATA = JSON.parse(localStorage.getItem(K_DATA) || 'null') || DATA; } catch (e) {} try { QUEUE = JSON.parse(localStorage.getItem(K_QUEUE) || '[]') || []; } catch (e) { QUEUE = []; } }
 function simpanCfgLokal() { try { localStorage.setItem(K_CFG, JSON.stringify(CFG)); } catch (e) {} }
 function simpanDataLokal() { try { localStorage.setItem(K_DATA, JSON.stringify(DATA)); } catch (e) {} }
+function simpanQueueLokal() { try { localStorage.setItem(K_QUEUE, JSON.stringify(QUEUE)); } catch (e) {} }
+function uid() { return 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+// Tampilkan stok dgn seluruh penyesuaian yg masih menunggu terkirim ikut diperhitungkan (supaya layar tetap benar walau belum tersinkron).
+function terapkanQueueOptimis() { QUEUE.forEach((q) => { const s = DATA.stok.find((x) => x.id === q.barangId); if (s) s.stok += q.jumlah; }); }
 
 function bukaSetup() {
   $('l_main').style.display = 'none'; $('l_setup').style.display = 'block';
@@ -154,17 +158,39 @@ async function panggil(body) {
   if (!j.ok) throw new Error(j.error || 'Gagal mengambil data');
   return j;
 }
+function updateStatus(err, pesanErr) {
+  const st = $('status'); st.style.display = ''; st.classList.toggle('err', !!err);
+  const antre = QUEUE.length ? `${QUEUE.length} penyesuaian menunggu dikirim` : '';
+  if (err) st.textContent = 'Gagal memuat: ' + pesanErr + (antre ? ' · ' + antre : '');
+  else st.textContent = (WAKTU ? 'Data sampai ' + WAKTU.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '') + (antre ? (WAKTU ? ' · ' : '') + antre : '');
+}
+// Kirim semua penyesuaian yg masih tertunda (dibuat saat offline/gagal kirim). Berhenti begitu satu percobaan gagal - sisanya dicoba lagi nanti.
+async function flushQueue() {
+  if (sedangFlush || !QUEUE.length || !CFG) return;
+  sedangFlush = true;
+  while (QUEUE.length) {
+    const q = QUEUE[0];
+    try {
+      const j = await panggil({ action: 'tambahPenyesuaian', id: q.id, barangId: q.barangId, tanggal: q.tanggal, jumlah: q.jumlah, alasan: q.alasan, catatan: q.catatan });
+      QUEUE.shift(); simpanQueueLokal();
+      if (j.data) { DATA = { pesanan: j.data.pesanan || [], stok: j.data.stok || [] }; WAKTU = new Date(); terapkanQueueOptimis(); simpanDataLokal(); }
+      render(); updateStatus();
+    } catch (e) { break; }   // masih gagal (offline dsb) - coba lagi lain kali, jangan buang dari antrean
+  }
+  sedangFlush = false;
+}
 async function segarkan(manual) {
   if (!CFG) { bukaSetup(); return; }
-  const st = $('status'); st.style.display = ''; st.classList.remove('err'); st.textContent = 'Memuat data…';
+  await flushQueue();
+  updateStatus(); $('status').textContent = 'Memuat data…';
   try {
     const j = await panggil({ action: 'dataOperator' });
     DATA = { pesanan: j.pesanan || [], stok: j.stok || [] }; WAKTU = new Date();
-    simpanDataLokal();
-    st.textContent = 'Data sampai ' + WAKTU.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    terapkanQueueOptimis(); simpanDataLokal();
+    updateStatus();
     render();
   } catch (e) {
-    st.classList.add('err'); st.textContent = 'Gagal memuat: ' + e.message + (manual ? '' : ' (menampilkan data terakhir)');
+    updateStatus(true, e.message + (manual ? '' : ' (menampilkan data terakhir)'));
     render();
   }
 }
@@ -182,7 +208,7 @@ function render() {
       : `<div class="kosong">${q ? 'Tidak ada pesanan yang cocok.' : 'Belum ada pesanan.'}</div>`;
   } else {
     const arr = DATA.stok.filter((s) => !q || s.nama.toLowerCase().indexOf(q) >= 0);
-    $('isi').innerHTML = arr.length ? arr.map((s) => `<div class="crow" onclick="bukaPeny('${s.id}')"><div class="cb"><div class="c1"><span>${esc(s.nama)}</span><span class="r${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div></div></div>`).join('')
+    $('isi').innerHTML = arr.length ? arr.map((s) => { const n = QUEUE.filter((x) => x.barangId === s.id).length; return `<div class="crow" onclick="bukaPeny('${s.id}')"><div class="cb"><div class="c1"><span>${esc(s.nama)}${n ? ` <small style="color:#b45309;font-weight:600">(${n} menunggu kirim)</small>` : ''}</span><span class="r${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div></div></div>`; }).join('')
       : `<div class="kosong">${q ? 'Tidak ada item yang cocok.' : 'Belum ada item.'}</div>`;
   }
 }
@@ -198,24 +224,22 @@ function bukaPeny(id) {
   $('l_peny').classList.add('on');
 }
 function tutupPeny() { $('l_peny').classList.remove('on'); PN_ID = null; }
-async function simpanPeny() {
+function simpanPeny() {
   const mag = Number($('pn_jml').value) || 0;
   if (!(mag > 0)) { $('pn_err').textContent = 'Isi jumlah lebih dari 0.'; return; }
+  const s = DATA.stok.find((x) => x.id === PN_ID); if (!s) return;
   const jumlah = $('pn_arah').value === 'tambah' ? mag : -mag;
-  const btn = $('pn_simpan'); btn.disabled = true; btn.textContent = 'Menyimpan…'; $('pn_err').textContent = '';
-  try {
-    const j = await panggil({ action: 'tambahPenyesuaian', barangId: PN_ID, tanggal: $('pn_tgl').value || hariIni(), jumlah, alasan: $('pn_alasan').value, catatan: $('pn_cat').value.trim() });
-    if (j.data) { DATA = { pesanan: j.data.pesanan || [], stok: j.data.stok || [] }; simpanDataLokal(); }
-    tutupPeny(); render(); toast('Penyesuaian tersimpan ✓');
-  } catch (e) {
-    $('pn_err').textContent = 'Gagal menyimpan: ' + e.message;
-  } finally {
-    btn.disabled = false; btn.textContent = 'Simpan';
-  }
+  QUEUE.push({ id: uid(), barangId: PN_ID, tanggal: $('pn_tgl').value || hariIni(), jumlah, alasan: $('pn_alasan').value, catatan: $('pn_cat').value.trim() });
+  simpanQueueLokal();
+  s.stok += jumlah;   // langsung terlihat di layar, tidak menunggu jawaban server
+  tutupPeny(); render(); updateStatus();
+  toast('Penyesuaian dicatat, mengirim…');
+  flushQueue().then(() => { toast(QUEUE.length ? 'Belum ada sinyal - akan terkirim otomatis' : 'Penyesuaian terkirim ✓'); });
 }
 
 muatCfg();
-if (CFG && CFG.url && CFG.token) { $('l_main').style.display = 'flex'; render(); segarkan(false); }
+terapkanQueueOptimis();
+if (CFG && CFG.url && CFG.token) { $('l_main').style.display = 'flex'; render(); updateStatus(); segarkan(false); }
 else bukaSetup();
 window.addEventListener('online', () => segarkan(false));
 if ('serviceWorker' in navigator) { /* halaman operator sengaja tanpa service worker: selalu ambil data terbaru saat online */ }
