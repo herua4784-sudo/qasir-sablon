@@ -244,6 +244,7 @@ if (CFG && CFG.url && CFG.token) { $('l_main').style.display = 'flex'; render();
 else bukaSetup();
 window.addEventListener('online', () => segarkan(false));
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw-operator.js', { scope: './operator.html' }).catch(() => {});
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 </script>
 </body>
 </html>
