@@ -333,7 +333,7 @@
         <div class="fl"><label for="u_bayar">Info Pembayaran (tampil di bawah alamat)</label><textarea id="u_bayar" placeholder="mis. Pembayaran Transfer ke&#10;BANK ... 0000000000&#10;An. ..."></textarea></div>
         <div class="fl"><label for="u_kaki">Tulisan Penutup Nota</label><textarea id="u_kaki"></textarea></div>
         <div class="fl"><label for="u_lebar">Lebar Kertas Struk</label><select id="u_lebar"><option value="384">58 mm (paling umum)</option><option value="576">80 mm</option></select></div>
-        <div class="fl"><label for="u_saldo">Saldo Kas &amp; Bank Awal (Rp) - untuk laporan Arus Kas &amp; Summary</label><input id="u_saldo" type="number" inputmode="numeric" placeholder="0"></div>
+        <div class="fl"><label for="u_saldo">Saldo Kas &amp; Bank Awal (Rp) - untuk laporan Arus Kas &amp; Summary</label><input id="u_saldo" type="text" inputmode="numeric" placeholder="0"></div>
         <div class="fl"><label>Logo (tampil di atas nota)</label>
           <input id="u_logo" type="file" accept="image/*" style="border:0;font-size:15px"></div>
         <img class="logo-pv" id="u_logo_pv" alt="Logo">
@@ -420,10 +420,10 @@
       <div class="seg" id="it_seg"><button data-a="katPilih" data-k="Harga All-In" class="on">Harga All-In</button><button data-a="katPilih" data-k="Jasa Sablon Saja">Jasa Sablon Saja</button></div>
       <div class="fl"><label for="it_warna">Warna (Opsional)</label><input id="it_warna" autocomplete="off"></div>
       <div class="fl"><label for="it_sat">Satuan</label><input id="it_sat" list="dl_sat" autocomplete="off"><datalist id="dl_sat"><option value="pcs"></option><option value="lusin"></option><option value="kodi"></option><option value="dus"></option><option value="pak"></option><option value="set"></option><option value="gelas"></option></datalist></div>
-      <div class="fl dua"><div><label for="it_harga">Harga</label><input id="it_harga" type="number" inputmode="numeric" min="0"></div><div><label for="it_disk">Diskon</label><input id="it_disk" inputmode="decimal" placeholder="mis. 10%"></div></div>
-      <div class="qty"><div class="fl"><label for="it_jml">Banyaknya</label><input id="it_jml" type="number" inputmode="decimal" min="0"></div><button class="kotak" data-a="qty" data-d="1">+</button><button class="kotak" data-a="qty" data-d="-1">-</button></div>
+      <div class="fl dua"><div><label for="it_harga">Harga</label><input id="it_harga" type="text" inputmode="numeric"></div><div><label for="it_disk">Diskon</label><input id="it_disk" inputmode="decimal" placeholder="mis. 10%"></div></div>
+      <div class="qty"><div class="fl"><label for="it_jml">Banyaknya</label><input id="it_jml" type="text" inputmode="numeric"></div><button class="kotak" data-a="qty" data-d="1">+</button><button class="kotak" data-a="qty" data-d="-1">-</button></div>
       <div class="fl"><label for="it_total">Jumlah Harga</label><input id="it_total" readonly value="0"></div>
-      <div class="fl"><label for="it_op">Biaya Operator Mesin per pcs (Rp)</label><input id="it_op" type="number" inputmode="numeric" min="0"></div>
+      <div class="fl"><label for="it_op">Biaya Operator Mesin per pcs (Rp)</label><input id="it_op" type="text" inputmode="numeric"></div>
       <div class="info-stok" id="it_opinfo"></div>
       <div class="fl"><label for="it_cat">Catatan</label><input id="it_cat" autocomplete="off"></div>
     </div>
@@ -452,7 +452,7 @@
 <dialog id="dlgBayar"><div class="dl">
   <h2>Pembayaran</h2>
   <div class="band"><div class="a"><span>Sisa pembayaran:</span><span id="b_sisa">0</span></div><div class="b">Dari Total: <span id="b_total">0</span></div></div>
-  <div class="fl"><label for="b_jml">Jumlah Bayar</label><input id="b_jml" type="number" inputmode="numeric" min="0"></div>
+  <div class="fl"><label for="b_jml">Jumlah Bayar</label><input id="b_jml" type="text" inputmode="numeric"></div>
   <div class="fl"><label for="b_tgl">Tanggal</label><input id="b_tgl" type="date"></div>
   <div class="fl"><label for="b_via">Via</label><input id="b_via" list="dl_via" autocomplete="off" placeholder="Tunai / Transfer / QRIS"><datalist id="dl_via"><option value="Tunai"></option><option value="Transfer"></option><option value="QRIS"></option></datalist></div>
   <div class="err" id="b_err"></div>
@@ -464,7 +464,7 @@
 <dialog id="dlgBayarBeli"><div class="dl">
   <h2>Bayar Hutang Pembelian</h2>
   <div class="band"><div class="a"><span>Sisa hutang:</span><span id="bb_sisa">0</span></div><div class="b">Dari Total: <span id="bb_total">0</span></div></div>
-  <div class="fl"><label for="bb_jml">Jumlah Bayar</label><input id="bb_jml" type="number" inputmode="numeric" min="0"></div>
+  <div class="fl"><label for="bb_jml">Jumlah Bayar</label><input id="bb_jml" type="text" inputmode="numeric"></div>
   <div class="fl"><label for="bb_tgl">Tanggal</label><input id="bb_tgl" type="date"></div>
   <div class="fl"><label for="bb_via">Via</label><input id="bb_via" list="dl_via" autocomplete="off" placeholder="Tunai / Transfer / QRIS"></div>
   <div class="err" id="bb_err"></div>
@@ -511,7 +511,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.11', API_MIN = 12;
+const VERSI = '5.12', API_MIN = 12;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -524,6 +524,21 @@ const BLN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Ag
 const $ = (id) => document.getElementById(id);
 const n0 = (x) => Number(x || 0).toLocaleString('id-ID');
 const nf = (x) => Number(x || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+const angkaBersih = (s) => String(s == null ? '' : s).replace(/[^\d]/g, '');
+const formatRibuan = (s) => { const d = angkaBersih(s); return d ? Number(d).toLocaleString('id-ID') : ''; };
+// Menambahkan titik ribuan otomatis sambil mengetik, posisi kursor tetap wajar (dihitung dari jumlah digit, bukan karakter).
+function pasangRibuan(el) {
+  if (!el || el._ribuan) return; el._ribuan = true;
+  el.addEventListener('input', () => {
+    const sebelum = el.value, posisi = el.selectionStart ?? sebelum.length;
+    const digitSblm = angkaBersih(sebelum.slice(0, posisi)).length;
+    el.value = formatRibuan(sebelum);
+    let hit = 0, i = 0;
+    for (; i < el.value.length; i++) { if (/\d/.test(el.value[i])) { hit++; if (hit === digitSblm) { i++; break; } } }
+    if (digitSblm === 0) i = 0;
+    el.setSelectionRange(i, i);
+  });
+}
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const uid = () => 'q' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const hariIni = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
@@ -1060,16 +1075,16 @@ function infoStokItem() {
 function isiFormItem(it) {
   EI.kat = it.Kategori || KAT_ALLIN; EI.barangId = it.BarangID || '';
   $('it_nama').value = it.Deskripsi || ''; $('it_warna').value = it.Warna || ''; $('it_sat').value = it.Satuan || 'pcs';
-  $('it_harga').value = it.Harga === undefined || it.Harga === null ? '' : it.Harga; $('it_disk').value = it.Diskon || '';
-  $('it_jml').value = it.Jumlah || ''; $('it_cat').value = it.Catatan || '';
-  $('it_op').value = it.OperatorPerPcs === undefined || it.OperatorPerPcs === null || it.OperatorPerPcs === '' ? opTerakhir() : it.OperatorPerPcs;
+  $('it_harga').value = it.Harga === undefined || it.Harga === null ? '' : formatRibuan(String(it.Harga)); $('it_disk').value = it.Diskon || '';
+  $('it_jml').value = it.Jumlah ? formatRibuan(String(it.Jumlah)) : ''; $('it_cat').value = it.Catatan || '';
+  $('it_op').value = formatRibuan(String(it.OperatorPerPcs === undefined || it.OperatorPerPcs === null || it.OperatorPerPcs === '' ? opTerakhir() : it.OperatorPerPcs));
   segKat(); hitungItem();
 }
 function segKat() { document.querySelectorAll('#it_seg button').forEach((b) => b.classList.toggle('on', b.dataset.k === EI.kat)); }
 function bacaFormItem() {
   return { Deskripsi: $('it_nama').value.trim(), Warna: $('it_warna').value.trim(), Satuan: $('it_sat').value.trim() || 'pcs', Kategori: EI.kat,
-    Jumlah: Number($('it_jml').value) || 0, Harga: Number($('it_harga').value) || 0, Diskon: $('it_disk').value.trim(), Catatan: $('it_cat').value.trim(), BarangID: EI.barangId || '',
-    OperatorPerPcs: Number($('it_op').value) || 0 };
+    Jumlah: Number(angkaBersih($('it_jml').value)) || 0, Harga: Number(angkaBersih($('it_harga').value)) || 0, Diskon: $('it_disk').value.trim(), Catatan: $('it_cat').value.trim(), BarangID: EI.barangId || '',
+    OperatorPerPcs: Number(angkaBersih($('it_op').value)) || 0 };
 }
 function hitungItem() {
   const f = bacaFormItem();
@@ -1277,7 +1292,7 @@ function bukaBayar() {
 }
 function simpanBayar(lunas) {
   const o = notaDari(notaAktifId); if (!o) return;
-  const sisa = Math.max(o.Total - o.Dibayar, 0), j = lunas ? sisa : Number($('b_jml').value) || 0;
+  const sisa = Math.max(o.Total - o.Dibayar, 0), j = lunas ? sisa : Number(angkaBersih($('b_jml').value)) || 0;
   if (sisa <= 0) { $('b_err').textContent = 'Nota ini sudah lunas.'; return; }
   if (j <= 0) { $('b_err').textContent = 'Isi jumlah bayar.'; return; }
   if (j > sisa) { $('b_err').textContent = 'Melebihi sisa pembayaran (' + n0(sisa) + ').'; return; }
@@ -1298,7 +1313,7 @@ function bukaBayarBeli(id) {
 }
 function simpanBayarBeli(lunas) {
   const r = lihat().Belanja.find((x) => x.ID === belanjaAktifId); if (!r) return;
-  const sisa = Math.max(r.Total - r.Dibayar, 0), j = lunas ? sisa : Number($('bb_jml').value) || 0;
+  const sisa = Math.max(r.Total - r.Dibayar, 0), j = lunas ? sisa : Number(angkaBersih($('bb_jml').value)) || 0;
   if (sisa <= 0) { $('bb_err').textContent = 'Hutang ini sudah lunas.'; return; }
   if (j <= 0) { $('bb_err').textContent = 'Isi jumlah bayar.'; return; }
   if (j > sisa) { $('bb_err').textContent = 'Melebihi sisa hutang (' + n0(sisa) + ').'; return; }
@@ -1444,12 +1459,14 @@ function bukaForm(nama, id) {
     if (f.t === 'sel') inp = `<select id="ff_${f.k}">${f.o.map((o) => `<option${String(v) === o ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
     else {
       const daftar = f.t === 'dl' ? (f.o === 'brg' ? lihat().Barang.map((b) => b.Nama) : f.o) : null;
-      inp = `<input id="ff_${f.k}" type="${f.t === 'number' ? 'number' : f.t === 'dl' ? 'text' : f.t || 'text'}"${f.t === 'number' ? ' inputmode="decimal" min="0" step="any"' : ''}${f.t === 'tel' ? ' inputmode="tel"' : ''}${daftar ? ` list="dl_f_${f.k}"` : ''} value="${esc(v)}" autocomplete="off">`
+      const angka = f.t === 'number';
+      inp = `<input id="ff_${f.k}" type="${angka ? 'text' : f.t === 'dl' ? 'text' : f.t || 'text'}"${angka ? ' inputmode="numeric"' : ''}${f.t === 'tel' ? ' inputmode="tel"' : ''}${daftar ? ` list="dl_f_${f.k}"` : ''} value="${angka ? formatRibuan(v) : esc(v)}" autocomplete="off">`
         + (daftar ? `<datalist id="dl_f_${f.k}">${daftar.map((o) => `<option value="${esc(o)}"></option>`).join('')}</datalist>` : '');
     }
     const ekor = f.wa ? `<button class="ikon-tombol" data-a="wa" data-src="ff_${f.k}" aria-label="Buka WhatsApp">${svg('wa')}</button>` : f.kat ? `<button class="ikon-tombol" data-a="bukaKelolaKat" data-src="ff_${f.k}" data-list="${f.kat}" aria-label="Kelola kategori">${svg('kat')}</button>` : '';
     return `<div class="fl"${gAttr}><label for="ff_${f.k}">${esc(f.l)}</label>${ekor ? `<div class="dgn">${inp}${ekor}</div>` : inp}${f.h ? `<div class="petunjuk">${esc(f.h)}</div>` : ''}</div>`;
   }).join('') + (c.info && r ? c.info(r) : '') + (nama === 'pembelian' && r ? infoHutangBeli(r) : '');
+  c.f.forEach((f) => { if (f.t === 'number') pasangRibuan($('ff_' + f.k)); });
   if (nama === 'pembelian') pasangPembelian(r);
   if (nama === 'penyesuaian') pasangPenyesuaian(r);
   bukaLayar('l_form');
@@ -1493,7 +1510,7 @@ function infoHutangBeli(r) {
 }
 function pasangPembelian(r) {
   pembBarangId = r && r.BarangID && lihat().Barang.some((b) => b.ID === r.BarangID) ? r.BarangID : '';
-  const g = (k) => $('ff_' + k), num = (k) => Number(g(k).value) || 0, grp = (n) => document.querySelectorAll(`#f_isi [data-grp="${n}"]`);
+  const g = (k) => $('ff_' + k), num = (k) => Number(angkaBersih(g(k).value)) || 0, grp = (n) => document.querySelectorAll(`#f_isi [data-grp="${n}"]`);
   const manual = {}, terakhir = (kunci, idBrg) => lihat().Belanja.filter((x) => x.BarangID && Number(x[kunci]) > 0 && (!idBrg || x.BarangID === idBrg)).sort((a, b) => String(b.Tanggal).localeCompare(String(a.Tanggal)))[0];
   let sebelumnya = pembBarangId, terisi = false;
   function segar() {
@@ -1503,9 +1520,9 @@ function pasangPembelian(r) {
     grp('hutang').forEach((e) => { e.style.display = g('BelumLunas').checked ? '' : 'none'; });
     if (b && sebelumnya !== b.ID && !r) {          // baru memilih item: isi otomatis dari data item / pembelian terakhir
       const lb = terakhir('HargaPerDus', b.ID), lt = terakhir('TravelPerDus');
-      if (!manual.IsiPerDus) g('IsiPerDus').value = (Number(b.IsiPerDus) > 0 ? b.IsiPerDus : (lb ? lb.IsiPerDus : '')) || '';
-      if (!manual.HargaPerDus) g('HargaPerDus').value = lb ? lb.HargaPerDus : '';
-      if (!manual.TravelPerDus) g('TravelPerDus').value = lt ? lt.TravelPerDus : '';
+      if (!manual.IsiPerDus) g('IsiPerDus').value = formatRibuan(String((Number(b.IsiPerDus) > 0 ? b.IsiPerDus : (lb ? lb.IsiPerDus : '')) || ''));
+      if (!manual.HargaPerDus) g('HargaPerDus').value = formatRibuan(String(lb ? lb.HargaPerDus : ''));
+      if (!manual.TravelPerDus) g('TravelPerDus').value = formatRibuan(String(lt ? lt.TravelPerDus : ''));
       terisi = !!(lb || lt || Number(b.IsiPerDus) > 0);
     }
     sebelumnya = b ? b.ID : '';
@@ -1527,7 +1544,7 @@ function okForm() {
     if (f.t === 'info' || f.virt) return;
     const el = $('ff_' + f.k); let v = el.value.trim();
     if (f.w && !v && !salah) salah = f.l + ' wajib diisi.';
-    if (f.t === 'number') { v = v === '' ? '' : Number(v); if (f.pos && v !== '' && !(v > 0) && !salah) salah = f.l + ' harus lebih dari 0.'; }
+    if (f.t === 'number') { v = v === '' ? '' : Number(angkaBersih(v)); if (f.pos && v !== '' && !(v > 0) && !salah) salah = f.l + ' harus lebih dari 0.'; }
     row[f.k] = v;
   });
   if (!salah && crudAktif === 'pembelian') {
@@ -1541,13 +1558,13 @@ function okForm() {
       Object.assign(row, { JumlahDus: '', IsiPerDus: '', HargaPerDus: '', TravelPerDus: '', BarangID: '', BiayaTravel: Number(row.BiayaTravel) || 0 });
     }
     const totalBeli = (Number(row.TotalHarga) || 0) + (Number(row.BiayaTravel) || 0);
-    row.Dibayar = $('ff_BelumLunas').checked ? Math.max(0, Math.min(Number($('ff_SudahDibayar').value) || 0, totalBeli)) : totalBeli;
+    row.Dibayar = $('ff_BelumLunas').checked ? Math.max(0, Math.min(Number(angkaBersih($('ff_SudahDibayar').value)) || 0, totalBeli)) : totalBeli;
     delete row.BelumLunas; delete row.SudahDibayar;
   }
   if (!salah && crudAktif === 'penyesuaian') {
     const b = cocokBarang(row.Nama);
     if (!b) salah = 'Pilih nama item yang sudah terdaftar di menu Item.';
-    else row.BarangID = b.ID, row.Jumlah = ($('ff_Arah').value.indexOf('Bertambah') >= 0 ? 1 : -1) * (Number($('ff_JumlahAbs').value) || 0);
+    else row.BarangID = b.ID, row.Jumlah = ($('ff_Arah').value.indexOf('Bertambah') >= 0 ? 1 : -1) * (Number(angkaBersih($('ff_JumlahAbs').value)) || 0);
   }
   if (!salah && c.unik) {
     const kembar = lihat()[c.sheet].find((x) => String(x[c.unik]).trim().toLowerCase() === String(row[c.unik]).toLowerCase() && x.ID !== crudEditId);
@@ -1928,11 +1945,11 @@ function renderLap() {
 function isiSetting() {
   const c = lihat().cfg;
   $('c_url').value = S.cfg.url || ''; $('c_token').value = S.cfg.token || '';
-  $('u_nama').value = c.nama; $('u_alamat').value = c.alamat; $('u_bayar').value = c.infoBayar; $('u_kaki').value = c.kaki; $('u_lebar').value = c.lebar; $('u_saldo').value = Number(c.saldoAwal) ? c.saldoAwal : '';
+  $('u_nama').value = c.nama; $('u_alamat').value = c.alamat; $('u_bayar').value = c.infoBayar; $('u_kaki').value = c.kaki; $('u_lebar').value = c.lebar; $('u_saldo').value = Number(c.saldoAwal) ? formatRibuan(c.saldoAwal) : '';
   const pv = $('u_logo_pv'); pv.style.display = c.logo ? 'block' : 'none'; if (c.logo) pv.src = c.logo; $('u_logo_hapus').style.display = c.logo ? '' : 'none';
 }
 function simpanUsaha() {
-  const kv = { nama: $('u_nama').value.trim(), alamat: $('u_alamat').value.trim(), infoBayar: $('u_bayar').value.trim(), kaki: $('u_kaki').value.trim(), lebar: $('u_lebar').value, saldoAwal: String(Number($('u_saldo').value) || 0) };
+  const kv = { nama: $('u_nama').value.trim(), alamat: $('u_alamat').value.trim(), infoBayar: $('u_bayar').value.trim(), kaki: $('u_kaki').value.trim(), lebar: $('u_lebar').value, saldoAwal: String(Number(angkaBersih($('u_saldo').value)) || 0) };
   const c = lihat().cfg;
   Object.keys(kv).forEach((k) => { if (String(c[k]) !== String(kv[k])) antre({ op: 'setel', key: k, value: kv[k] }); });
   pesan('Data usaha tersimpan', 2500);
@@ -1993,7 +2010,7 @@ const ACT = {
   itemAksiHapus: (el) => { tutupAksi(); hapusItemPress(el.dataset.id); }, itemAksiPilih: (el) => { tutupAksi(); setModePilih(true); itemSelSet.add(el.dataset.id); tampilEditor(); }, itemPilihSemua: () => pilihSemuaItem(), itemHapusSel: () => hapusItemTerpilih(),
   pilihItem: (el) => pilihItem(el.dataset.id),
   katPilih: (el) => { EI.kat = el.dataset.k; segKat(); hitungItem(); },
-  qty: (el) => { const v = Math.max(0, (Number($('it_jml').value) || 0) + Number(el.dataset.d)); $('it_jml').value = v; hitungItem(); },
+  qty: (el) => { const v = Math.max(0, (Number(angkaBersih($('it_jml').value)) || 0) + Number(el.dataset.d)); $('it_jml').value = formatRibuan(String(v)); hitungItem(); },
   wa: (el) => bukaWA($(el.dataset.src).value),
   pvBayar: () => bukaBayar(), pvBagikan: () => bagikanNota(), pvCetak: () => cetakNota(),
   pvMenu: () => popup([{ a: 'pvUbah', t: 'Ubah Nota' }, { a: 'pvWA', t: 'Buka WhatsApp Pelanggan' }, { a: 'pvUnduh', t: 'Simpan Gambar' }, { a: 'pvHapus', t: 'Hapus Nota' }]),
@@ -2101,6 +2118,7 @@ if (window.matchMedia && matchMedia('(pointer: coarse)').matches) {
 const tunda = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 $('n_cari').addEventListener('input', tunda(() => { notaTampil = 0; renderNota(lihat()); }, 150));
 $('dk_baru').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tambahKatBaru(); } });
+['u_saldo', 'it_harga', 'it_jml', 'it_op', 'b_jml', 'bb_jml'].forEach((id) => pasangRibuan($(id)));
 $('ci_cari').addEventListener('input', tunda(() => { $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null); }, 150));
 $('cl_cari').addEventListener('input', tunda(() => { $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan')); }, 150));
 $('cl_bulan').addEventListener('change', () => { $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan')); });
