@@ -511,7 +511,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.12', API_MIN = 12;
+const VERSI = '5.13', API_MIN = 12;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1610,7 +1610,7 @@ function renderKontrol() {
   const k = LP.k, h = [];
   const tgl = (f, v) => `<input type="date" class="tg" data-f="${f}" value="${v}" aria-label="${f}">`;
   const pilih = (f, ops, cur) => `<select data-f="${f}">${ops.map(([v, t]) => `<option value="${v}"${String(v) === String(cur) ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
-  if (k === 'summary') {
+  if (k === 'summary' || k === 'operator') {
     const v = lihat(), th = +hariIni().slice(0, 4);
     let awal = th - 2; v.Pesanan.forEach((o) => { const y = +String(o.Tanggal).slice(0, 4); if (y && y < awal) awal = y; });
     const thn = []; for (let y = awal; y <= th + 1; y++) thn.push([String(y), String(y)]);
@@ -1817,7 +1817,7 @@ function lapLabaJual(v) {
 }
 function lapOperator(v) {
   // Biaya operator diinput per pcs pada tiap item nota. Biaya ini hanya muncul di laporan, tidak dicetak di nota.
-  const d = dataLap(LP.dari, LP.sampai), ps = d.ps, out = [], its = []; ps.forEach((o) => o.Items.forEach((it) => its.push({ ...it, nota: o })));
+  const d = dataLap(awalBulan(LP.bln + '-01'), akhirBulan(LP.bln + '-01')), ps = d.ps, out = [], its = []; ps.forEach((o) => o.Items.forEach((it) => its.push({ ...it, nota: o })));
   const pcs = jml(its, pcsItem), biaya = jml(its, (i) => i.BiayaOperator);
   out.push(R('Total Biaya Operator', n0(biaya), 'tebal', `${ps.length} nota · ${nf(pcs)} pcs dikerjakan`), R('Rata-rata per pcs', pcs ? nf(biaya / pcs) : '-'), JD('PER KATEGORI'));
   [KAT_ALLIN, KAT_JASA].forEach((k) => { const a = its.filter((i) => i.Kategori === k); if (a.length) out.push(R(k, n0(jml(a, (i) => i.BiayaOperator)), '', `${nf(jml(a, pcsItem))} pcs`)); });
