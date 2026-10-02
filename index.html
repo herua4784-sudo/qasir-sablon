@@ -360,6 +360,7 @@
     <div class="bar hitam"><button class="bi" data-a="back"><i data-ic="back"></i></button><div class="jdl" id="cl_judul"></div></div>
     <div class="cari"><input id="cl_cari" type="search" placeholder="Cari" autocomplete="off"><input id="cl_bulan" type="month" title="Filter bulan"></div>
     <div class="isi" id="cl_list"></div>
+    <div class="ringkas" id="cl_ringkas"></div>
     <button class="fab" id="cl_fab" data-a="crudBaru" style="bottom:24px"><i data-ic="add"></i></button>
   </div>
 
@@ -511,7 +512,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.16', API_MIN = 13;
+const VERSI = '5.17', API_MIN = 13;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -871,7 +872,7 @@ function renderTampil() {
   const v = lihat(), aktif = (id) => $(id).classList.contains('on');
   if (aktif('t_nota') && kotor.nota) { renderNota(v); kotor.nota = false; }
   if (aktif('t_item') && kotor.item) { renderItemTab(v); kotor.item = false; }
-  if (aktif('l_list') && kotor.list) { $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan')); kotor.list = false; }
+  if (aktif('l_list') && kotor.list) { renderDaftarList(); kotor.list = false; }
   if (!aktif('t_setting') && kotor.setting) { isiSetting(); kotor.setting = false; }
   const sig = v.Pelanggan.map((p) => p.Nama).join('\n') + '\u0001' + v.Barang.map((b) => b.Nama).join('\n');
   if (sig !== sigDatalist) {
@@ -1442,10 +1443,23 @@ function daftarCrud(nama, cariEl, bulanEl) {
   const sel = nama === 'barang' && brgSelMode;
   return arr.length ? arr.map((r) => `<div class="crow${sel && brgSelSet.has(r.ID) ? ' dipilih' : ''}" data-a="crudEdit" data-c="${nama}" data-id="${r.ID}"><span class="ichk">${svg('cek')}</span>${c.baris(r)}</div>`).join('') : '<div class="kosong">Belum ada data.</div>';
 }
+function ringkasDaftar(nama, cariEl, bulanEl) {
+  const c = CRUD[nama]; if (!c) return '';
+  const q = (cariEl.value || '').trim().toLowerCase(), b = bulanEl ? bulanEl.value : '';
+  const arr = lihat()[c.sheet].filter((r) => (!q || c.cari(r).toLowerCase().indexOf(q) >= 0) && (!b || String(r.Tanggal).slice(0, 7) === b));
+  if (nama === 'pembelian') return `Total ${n0(jml(arr, (r) => r.Total))} dari ${nf(arr.length)} pembelian.`;
+  if (nama === 'pengeluaran') return `Total ${n0(jml(arr, (r) => Number(r.Jumlah) || 0))} dari ${nf(arr.length)} pengeluaran.`;
+  if (nama === 'transfer') {
+    const keluar = jml(arr.filter((r) => Number(r.Jumlah) < 0), (r) => -Number(r.Jumlah)), masuk = jml(arr.filter((r) => Number(r.Jumlah) > 0), (r) => Number(r.Jumlah));
+    return `Keluar ${n0(keluar)} · Masuk ${n0(masuk)} dari ${nf(arr.length)} transfer.`;
+  }
+  return '';
+}
+function renderDaftarList() { $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan')); $('cl_ringkas').textContent = ringkasDaftar(crudAktif, $('cl_cari'), $('cl_bulan')); }
 function bukaDaftar(nama) {
   crudAktif = nama; const c = CRUD[nama];
   $('cl_judul').textContent = c.judul; $('cl_cari').value = ''; $('cl_bulan').value = ''; $('cl_bulan').style.display = c.tgl ? '' : 'none';
-  $('cl_list').innerHTML = daftarCrud(nama, $('cl_cari'), $('cl_bulan')); bukaLayar('l_list');
+  renderDaftarList(); bukaLayar('l_list');
 }
 function bukaForm(nama, id) {
   crudAktif = nama; crudEditId = id || null; pembBarangId = '';
@@ -2143,8 +2157,8 @@ $('n_cari').addEventListener('input', tunda(() => { notaTampil = 0; renderNota(l
 $('dk_baru').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tambahKatBaru(); } });
 ['u_saldo', 'it_harga', 'it_jml', 'it_op', 'b_jml', 'bb_jml'].forEach((id) => pasangRibuan($(id)));
 $('ci_cari').addEventListener('input', tunda(() => { $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null); }, 150));
-$('cl_cari').addEventListener('input', tunda(() => { $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan')); }, 150));
-$('cl_bulan').addEventListener('change', () => { $('cl_list').innerHTML = daftarCrud(crudAktif, $('cl_cari'), $('cl_bulan')); });
+$('cl_cari').addEventListener('input', tunda(renderDaftarList, 150));
+$('cl_bulan').addEventListener('change', renderDaftarList);
 $('pl_cari').addEventListener('input', tunda(renderPilih, 150));
 $('e_memo').addEventListener('input', () => { if (E) { E.memo = $('e_memo').value; E.dirty = true; } });
 $('k_nama').addEventListener('input', autoPelanggan);
