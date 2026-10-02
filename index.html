@@ -361,7 +361,7 @@
     <div class="cari"><input id="cl_cari" type="search" placeholder="Cari" autocomplete="off"><input id="cl_bulan" type="month" title="Filter bulan"></div>
     <div class="isi" id="cl_list"></div>
     <div class="ringkas" id="cl_ringkas"></div>
-    <button class="fab" id="cl_fab" data-a="crudBaru" style="bottom:24px"><i data-ic="add"></i></button>
+    <button class="fab" id="cl_fab" data-a="crudBaru"><i data-ic="add"></i></button>
   </div>
 
   <!-- ================= LAYAR: FORM UMUM ================= -->
@@ -512,7 +512,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.17', API_MIN = 13;
+const VERSI = '5.18', API_MIN = 14;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1432,9 +1432,10 @@ const CRUD = {
     f: [{ k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' }, { k: 'LabaInfo', t: 'info' },
       { k: 'Arah', l: 'Arah', t: 'sel', o: ['Setor ke Rekening Lain (keluar dari Kas & Bank)', 'Tarik Kembali (masuk ke Kas & Bank)'], virt: 1 },
       { k: 'JumlahAbs', l: 'Jumlah (Rp)', t: 'number', pos: 1, w: 1, virt: 1 },
-      { k: 'Keterangan', l: 'Keterangan (mis. Setor Laba 80%)' }],
+      { k: 'Keterangan', l: 'Keterangan (mis. Setor Laba 80%)' },
+      { k: 'Pinjaman', l: 'Ini Pinjaman / Pelunasan Hutang Pinjaman (bukan Setor Laba biasa)', t: 'chk' }],
     cari: (r) => [r.Keterangan].join(' '), urut: (a, b) => String(b.Tanggal).localeCompare(String(a.Tanggal)),
-    baris: (r) => { const neg = Number(r.Jumlah) < 0; return `<div class="cb"><div class="c1"><span>${esc(r.Keterangan || (neg ? 'Setor ke Rekening Lain' : 'Tarik Kembali'))}</span><span class="r ${neg ? 'neg' : ''}">${neg ? '−' : '+'}${n0(Math.abs(r.Jumlah))}</span></div><div class="c2">${tglDMY(r.Tanggal)}</div></div>`; } }
+    baris: (r) => { const neg = Number(r.Jumlah) < 0; return `<div class="cb"><div class="c1"><span>${esc(r.Keterangan || (neg ? 'Setor ke Rekening Lain' : 'Tarik Kembali'))}${r.Pinjaman ? ' <span class="tag hutang">Pinjaman</span>' : ''}</span><span class="r ${neg ? 'neg' : ''}">${neg ? '−' : '+'}${n0(Math.abs(r.Jumlah))}</span></div><div class="c2">${tglDMY(r.Tanggal)}</div></div>`; } }
 };
 function daftarCrud(nama, cariEl, bulanEl) {
   const c = CRUD[nama]; if (!c) return '';
@@ -1575,7 +1576,7 @@ function okForm() {
   const c = CRUD[crudAktif], row = {}; let salah = '';
   c.f.forEach((f) => {
     if (f.t === 'info' || f.virt) return;
-    const el = $('ff_' + f.k); let v = el.value.trim();
+    const el = $('ff_' + f.k); let v = f.t === 'chk' ? (el.checked ? '1' : '') : el.value.trim();
     if (f.w && !v && !salah) salah = f.l + ' wajib diisi.';
     if (f.t === 'number') { v = v === '' ? '' : Number(angkaBersih(v)); if (f.pos && v !== '' && !(v > 0) && !salah) salah = f.l + ' harus lebih dari 0.'; }
     row[f.k] = v;
@@ -1772,7 +1773,9 @@ function lapSummary(v) {
   out.push(gbox('Pembelian', grafikKombo(lbl, [{ nama: 'Pembelian', warna: WARNA[3], data: col((a) => a.beli) }, { nama: 'Hutang', warna: WARNA[2], data: col((a) => a.hutang) }], null)));
   const h = hariIni(), akhir = akhirBulan(bln + '-01'), tgl = akhir < h ? akhir : h, kas = aliranKas(v);
   const piu = jml(v.Pesanan.filter((o) => o.Tanggal <= tgl), (o) => Math.max(o.Total - jml(o.Bayar.filter((p) => String(p.Tanggal).slice(0, 10) <= tgl), (p) => p.Jumlah), 0));
-  const hut = jml(v.Belanja.filter((r) => r.Tanggal <= tgl), (r) => Math.max(r.Total - jml(r.Bayar.filter((p) => String(p.Tanggal).slice(0, 10) <= tgl), (p) => p.Jumlah), 0));
+  const hutSupplier = jml(v.Belanja.filter((r) => r.Tanggal <= tgl), (r) => Math.max(r.Total - jml(r.Bayar.filter((p) => String(p.Tanggal).slice(0, 10) <= tgl), (p) => p.Jumlah), 0));
+  const hutPinjaman = jml(v.Transfer.filter((r) => r.Pinjaman && String(r.Tanggal).slice(0, 10) <= tgl), (r) => Number(r.Jumlah) || 0);
+  const hut = hutSupplier + hutPinjaman;
   out.push(`<div class="saldo"><h3>Saldo per ${tglPanjang(tgl)}</h3>${R('Stok', n0(nilaiStokPer(v, tgl)))}${R('Kas &amp; Bank', n0(kasSampai(kas, tgl, false)))}${R('Piutang', n0(piu))}${R('Hutang', n0(hut))}</div>`);
   // ringkasan angka bulan terpilih
   const d = dataLap(awalBulan(bln + '-01'), akhir), L = labaRugi(d), perKat = grup(d.pg, (r) => r.Kategori || 'Lainnya', (r) => [Number(r.Jumlah) || 0, 0]).sort((x, y) => y.a - x.a);
