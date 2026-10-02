@@ -512,7 +512,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.18', API_MIN = 14;
+const VERSI = '5.19', API_MIN = 14;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1361,7 +1361,8 @@ function salinNota(id) {
 let KAT_BELI = ['Gelas', 'Tinta', 'Kertas transfer/film', 'Bahan kimia', 'Lainnya'];
 let KAT_KELUAR = ['Gaji', 'Sewa Gudang', 'Listrik', 'Air', 'Internet', 'Transport', 'Lainnya'];
 const stokBarang = (id) => lihat().stok[id] || { stok: 0, avg: 0, nilai: 0, terakhir: 0 };
-const biayaBeli = (r) => (Number(r.TotalHarga) || 0) + (Number(r.BiayaTravel) || 0);
+const biayaBeliPenuh = (r) => (Number(r.TotalHarga) || 0) + (Number(r.BiayaTravel) || 0);   // biaya penuh (termasuk travel) - dipakai utk rekonsiliasi Persediaan/HPP di Laba Rugi, SELALU termasuk travel apa pun kategorinya
+const biayaBeli = (r) => (Number(r.TotalHarga) || 0) + (r.BarangID ? 0 : (Number(r.BiayaTravel) || 0));   // biaya relevan KAS/hutang: item stok - travel cuma masuk HPP (lihat hitungStok), BUKAN uang keluar; bahan biasa - travel tetap uang keluar krn tidak ada HPP
 let pembBarangId = '';
 function infoKartuStok(r) {
   const s = stokBarang(r.ID), k = (lihat().kartu[r.ID] || []).slice().reverse().slice(0, 40);
@@ -1407,11 +1408,11 @@ const CRUD = {
       { k: 'SudahDibayar', l: 'Sudah Dibayar (Rp)', t: 'number', g: 'hutang', def: '0', h: 'Sisanya tercatat sebagai hutang ke supplier. Cicilan berikutnya dicatat lewat tombol Catat Pembayaran di bawah.' }],
     cari: (r) => [r.Bahan, r.Kategori, r.Supplier].join(' '), urut: (a, b) => String(b.Tanggal).localeCompare(String(a.Tanggal)),
     baris: (r) => {
-      const stok = !!(r.BarangID && lihat().Barang.some((b) => b.ID === r.BarangID)), tot = r.Total, j = Number(r.Jumlah) || 0, dus = Number(r.JumlahDus) || 0;
+      const stok = !!(r.BarangID && lihat().Barang.some((b) => b.ID === r.BarangID)), tot = r.Total, j = Number(r.Jumlah) || 0, dus = Number(r.JumlahDus) || 0, hppBasis = (Number(r.TotalHarga) || 0) + (Number(r.BiayaTravel) || 0);
       const sisa = Math.max(tot - r.Dibayar, 0);
       let ket;
-      if (stok && dus) ket = `${nf(dus)} dus × ${nf(r.IsiPerDus)} pcs = ${nf(j)} pcs · HPP ${j ? n0(Math.round(tot / j)) : '-'}/pcs · travel ${n0(r.TravelPerDus)}/dus`;
-      else ket = `${nf(r.Jumlah)} ${esc(r.Satuan || '')}${stok && j ? ' · HPP ' + n0(Math.round(tot / j)) + '/pcs' : ''}${Number(r.BiayaTravel) ? ' · travel ' + n0(r.BiayaTravel) : ''}`;
+      if (stok && dus) ket = `${nf(dus)} dus × ${nf(r.IsiPerDus)} pcs = ${nf(j)} pcs · HPP ${j ? n0(Math.round(hppBasis / j)) : '-'}/pcs · travel ${n0(r.TravelPerDus)}/dus`;
+      else ket = `${nf(r.Jumlah)} ${esc(r.Satuan || '')}${stok && j ? ' · HPP ' + n0(Math.round(hppBasis / j)) + '/pcs' : ''}${Number(r.BiayaTravel) ? ' · travel ' + n0(r.BiayaTravel) : ''}`;
       return `<div class="cb"><div class="c1"><span>${esc(r.Bahan)}${stok ? ' <span class="tag stok">Stok</span>' : ''}${sisa > 0 ? ' <span class="tag hutang">Hutang</span>' : ''}</span><span class="r">${n0(tot)}</span></div><div class="c2">${tglDMY(r.Tanggal)} · ${ket}${r.Supplier ? ' · ' + esc(r.Supplier) : ''}</div>${sisa > 0 ? `<div class="c2 neg">Sisa ${n0(sisa)} dari ${n0(tot)}</div>` : ''}</div>`;
     } },
   pengeluaran: { sheet: 'Pengeluaran', judul: 'Pengeluaran', tambah: 'Tambah Pengeluaran', ubah: 'Ubah Pengeluaran', tgl: true,
@@ -1591,7 +1592,7 @@ function okForm() {
       if (!(Number(row.TotalHarga) > 0)) salah = 'Isi Total Harga.';
       Object.assign(row, { JumlahDus: '', IsiPerDus: '', HargaPerDus: '', TravelPerDus: '', BarangID: '', BiayaTravel: Number(row.BiayaTravel) || 0 });
     }
-    const totalBeli = (Number(row.TotalHarga) || 0) + (Number(row.BiayaTravel) || 0);
+    const totalBeli = biayaBeli(row);
     row.Dibayar = $('ff_BelumLunas').checked ? Math.max(0, Math.min(Number(angkaBersih($('ff_SudahDibayar').value)) || 0, totalBeli)) : totalBeli;
     delete row.BelumLunas; delete row.SudahDibayar;
   }
@@ -1873,7 +1874,7 @@ function lapOperator(v) {
 // ================= LABA BERSIH (Laba Rugi) =================
 function lapLabaBersih(v) {
   const d = dataLap(LP.dari, LP.sampai), L = labaRugi(d), out = [], nama = v.cfg.nama;
-  const awal = nilaiStokPer(v, tambahHari(LP.dari, -1)), akhir = nilaiStokPer(v, LP.sampai), beli = jml(d.blStok, biayaBeli);
+  const awal = nilaiStokPer(v, tambahHari(LP.dari, -1)), akhir = nilaiStokPer(v, LP.sampai), beli = jml(d.blStok, biayaBeliPenuh);
   const koreksi = Math.round(L.modal - (awal + beli - akhir));
   const perKat = grup(d.pg, (r) => r.Kategori || 'Lainnya', (r) => [Number(r.Jumlah) || 0, 0]).sort((x, y) => y.a - x.a);
   const B = (t, val, o = {}) => `<div class="lr ${o.k || ''}"><span>${t}</span><span class="v">${val}</span><span class="sg">${o.sg || ''}</span></div>`;
