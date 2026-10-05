@@ -512,7 +512,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.19', API_MIN = 14;
+const VERSI = '5.21', API_MIN = 14;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1646,13 +1646,13 @@ function renderKontrol() {
   const k = LP.k, h = [];
   const tgl = (f, v) => `<input type="date" class="tg" data-f="${f}" value="${v}" aria-label="${f}">`;
   const pilih = (f, ops, cur) => `<select data-f="${f}">${ops.map(([v, t]) => `<option value="${v}"${String(v) === String(cur) ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
-  if (k === 'summary' || k === 'operator') {
+  if (k === 'summary' || k === 'operator' || k === 'analisa') {
     const v = lihat(), th = +hariIni().slice(0, 4);
     let awal = th - 2; v.Pesanan.forEach((o) => { const y = +String(o.Tanggal).slice(0, 4); if (y && y < awal) awal = y; });
     const thn = []; for (let y = awal; y <= th + 1; y++) thn.push([String(y), String(y)]);
     h.push(`<div class="baris2">${pilih('bulanM', BLN.map((n, i) => [String(i + 1).padStart(2, '0'), n]), LP.bln.slice(5))}${pilih('bulanY', thn, LP.bln.slice(0, 4))}</div>`);
-  } else if (k === 'analisa') h.push(pilih('per', PERIODE_ANALISA, LP.per));
-  else if (k === 'nilaistok') h.push(tgl('tgl', LP.tgl), `<input class="cr" data-f="cari" placeholder="Search" value="${esc(LP.cari)}" autocomplete="off">`);
+    if (k === 'analisa') h.push(pilih('per', PERIODE_ANALISA, LP.per));
+  } else if (k === 'nilaistok') h.push(tgl('tgl', LP.tgl), `<input class="cr" data-f="cari" placeholder="Search" value="${esc(LP.cari)}" autocomplete="off">`);
   else {
     h.push(`<div class="baris2">${tgl('dari', LP.dari)}${tgl('sampai', LP.sampai)}</div>`);
     if (k === 'aruskas') h.push(pilih('via', [['', 'Semua'], ['in', 'Cash In (uang masuk)'], ['out', 'Cash Out (uang keluar)']], LP.via));
@@ -1792,9 +1792,9 @@ function lapSummary(v) {
 
 // ================= ANALISA PENJUALAN =================
 function lapAnalisa(v) {
-  const per = Number(LP.per), h = hariIni(), dari = per ? tambahBulan(h, -per) : '';
-  const d = dataLap(dari, h), ps = d.ps, out = [];
-  const awalData = ps.length ? ps.reduce((m, o) => (o.Tanggal < m ? o.Tanggal : m), ps[0].Tanggal) : h, hari = Math.max(1, selisihHari(per ? dari : awalData, h));
+  const bln = LP.bln, sampai = akhirBulan(bln + '-01'), per = Number(LP.per), dari = per ? tambahBulan(sampai, -per) : '';
+  const d = dataLap(dari, sampai), ps = d.ps, out = [];
+  const awalData = ps.length ? ps.reduce((m, o) => (o.Tanggal < m ? o.Tanggal : m), ps[0].Tanggal) : sampai, hari = Math.max(1, selisihHari(per ? dari : awalData, sampai));
   const nm = (x) => String(x).trim().toLowerCase(), m = {}, soldBrg = {};
   ps.forEach((o) => o.Items.forEach((i) => {
     const g = m[nm(i.Deskripsi)] || (m[nm(i.Deskripsi)] = { nama: i.Deskripsi, sat: 'pcs', qty: 0, omzet: 0, laba: 0 });
@@ -1812,7 +1812,7 @@ function lapAnalisa(v) {
   out.push(K('piutang', 'Piutang Terbesar', daftar('piutang', pl.filter((x) => x.sisa > 0).sort((a, b) => b.sisa - a.sisa), (x) => `${esc(x.nama)} · ${n0(x.sisa)}`)));
   const terakhir = {}; v.Pesanan.forEach((o) => { const k = nm(o.Pelanggan); if (!terakhir[k] || o.Tanggal > terakhir[k].t) terakhir[k] = { nama: o.Pelanggan, t: o.Tanggal }; });
   const diam = dari ? Object.values(terakhir).filter((x) => x.t < dari).sort((a, b) => (a.t < b.t ? -1 : 1)) : [];
-  out.push(K('diam', 'Pelanggan Tidak Aktif', daftar('diam', diam, (x) => `${esc(x.nama)}<br>&nbsp;&nbsp;&nbsp;&nbsp;${tglDMY(x.t)} · ${selisihHari(x.t, h)} hari lalu`)));
+  out.push(K('diam', 'Pelanggan Tidak Aktif', daftar('diam', diam, (x) => `${esc(x.nama)}<br>&nbsp;&nbsp;&nbsp;&nbsp;${tglDMY(x.t)} · ${selisihHari(x.t, sampai)} hari lalu`)));
   const cepat = it.slice().sort((a, b) => b.qty - a.qty), n3 = N('gerak'), fst = cepat.slice(0, n3), lmb = it.slice().sort((a, b) => a.qty - b.qty).filter((x) => fst.indexOf(x) < 0).slice(0, n3);
   const gk = (x) => `${esc(x.nama)} · ${nf(x.qty)} / ${hari}d ${x.sat}`;
   out.push(K('gerak', 'Fast Moving / Slow Moving', it.length ? `Fast Moving:<br>${fst.map((x, i) => `${i + 1}. ${gk(x)}`).join('<br>')}${lmb.length ? `<br><br>Slow Moving:<br>${lmb.map((x, i) => `${i + 1}. ${gk(x)}`).join('<br>')}` : ''}` : kosong));
