@@ -512,7 +512,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.22', API_MIN = 14;
+const VERSI = '5.23', API_MIN = 14;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1794,7 +1794,8 @@ function lapSummary(v) {
 
 // ================= ANALISA PENJUALAN =================
 function lapAnalisa(v) {
-  const blnValid = /^\d{4}-\d{2}$/.test(LP.bln), sampai = blnValid ? akhirBulan(LP.bln + '-01') : hariIni(), per = Number(LP.per), dari = per ? tambahBulan(sampai, -per) : '';
+  const blnValid = /^\d{4}-\d{2}$/.test(LP.bln), sampai = blnValid ? akhirBulan(LP.bln + '-01') : hariIni(), per = Number(LP.per);
+  const dari = per ? (blnValid ? awalBulan(tambahBulan(sampai, -(per - 1))) : tambahBulan(sampai, -per)) : '';   // bulan dipilih manual: sejajar batas kalender (hindari kebawa 1 hari bulan sebelumnya); bulan dikosongkan: tetap jendela bergulir dari hari ini seperti semula
   const d = dataLap(dari, sampai), ps = d.ps, out = [];
   const awalData = ps.length ? ps.reduce((m, o) => (o.Tanggal < m ? o.Tanggal : m), ps[0].Tanggal) : sampai, hari = Math.max(1, selisihHari(per ? dari : awalData, sampai));
   const nm = (x) => String(x).trim().toLowerCase(), m = {}, soldBrg = {};
