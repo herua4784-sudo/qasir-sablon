@@ -512,7 +512,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.21', API_MIN = 14;
+const VERSI = '5.22', API_MIN = 14;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1650,7 +1650,9 @@ function renderKontrol() {
     const v = lihat(), th = +hariIni().slice(0, 4);
     let awal = th - 2; v.Pesanan.forEach((o) => { const y = +String(o.Tanggal).slice(0, 4); if (y && y < awal) awal = y; });
     const thn = []; for (let y = awal; y <= th + 1; y++) thn.push([String(y), String(y)]);
-    h.push(`<div class="baris2">${pilih('bulanM', BLN.map((n, i) => [String(i + 1).padStart(2, '0'), n]), LP.bln.slice(5))}${pilih('bulanY', thn, LP.bln.slice(0, 4))}</div>`);
+    const optM = k === 'analisa' ? [['', '(Semua Bulan)'], ...BLN.map((n, i) => [String(i + 1).padStart(2, '0'), n])] : BLN.map((n, i) => [String(i + 1).padStart(2, '0'), n]);
+    const optY = k === 'analisa' ? [['', '(Semua Tahun)'], ...thn] : thn;
+    h.push(`<div class="baris2">${pilih('bulanM', optM, LP.bln.slice(5))}${pilih('bulanY', optY, LP.bln.slice(0, 4))}</div>`);
     if (k === 'analisa') h.push(pilih('per', PERIODE_ANALISA, LP.per));
   } else if (k === 'nilaistok') h.push(tgl('tgl', LP.tgl), `<input class="cr" data-f="cari" placeholder="Search" value="${esc(LP.cari)}" autocomplete="off">`);
   else {
@@ -1662,8 +1664,8 @@ function renderKontrol() {
 }
 function setLP(f, val) {
   if ((f === 'dari' || f === 'sampai' || f === 'tgl') && !val) { renderKontrol(); return; }
-  if (f === 'bulanM') LP.bln = LP.bln.slice(0, 4) + '-' + val;
-  else if (f === 'bulanY') LP.bln = val + '-' + LP.bln.slice(5);
+  if (f === 'bulanM') { LP.bln = val ? (LP.bln.slice(0, 4) || hariIni().slice(0, 4)) + '-' + val : ''; if (!val) renderKontrol(); }
+  else if (f === 'bulanY') { LP.bln = val ? val + '-' + (LP.bln.slice(5) || hariIni().slice(5)) : ''; if (!val) renderKontrol(); }
   else LP[f] = val;
   if ((f === 'dari' || f === 'sampai') && LP.dari > LP.sampai) { if (f === 'dari') LP.sampai = LP.dari; else LP.dari = LP.sampai; renderKontrol(); }
   LP.buka = f === 'per' ? {} : LP.buka;
@@ -1792,7 +1794,7 @@ function lapSummary(v) {
 
 // ================= ANALISA PENJUALAN =================
 function lapAnalisa(v) {
-  const bln = LP.bln, sampai = akhirBulan(bln + '-01'), per = Number(LP.per), dari = per ? tambahBulan(sampai, -per) : '';
+  const blnValid = /^\d{4}-\d{2}$/.test(LP.bln), sampai = blnValid ? akhirBulan(LP.bln + '-01') : hariIni(), per = Number(LP.per), dari = per ? tambahBulan(sampai, -per) : '';
   const d = dataLap(dari, sampai), ps = d.ps, out = [];
   const awalData = ps.length ? ps.reduce((m, o) => (o.Tanggal < m ? o.Tanggal : m), ps[0].Tanggal) : sampai, hari = Math.max(1, selisihHari(per ? dari : awalData, sampai));
   const nm = (x) => String(x).trim().toLowerCase(), m = {}, soldBrg = {};
@@ -1810,6 +1812,10 @@ function lapAnalisa(v) {
   const pl = Object.values(pel);
   out.push(K('pelbaik', 'Pelanggan Terbaik', daftar('pelbaik', pl.slice().sort((a, b) => b.total - a.total), (x) => `${esc(x.nama)} · ${n0(x.total)}`)));
   out.push(K('piutang', 'Piutang Terbesar', daftar('piutang', pl.filter((x) => x.sisa > 0).sort((a, b) => b.sisa - a.sisa), (x) => `${esc(x.nama)} · ${n0(x.sisa)}`)));
+  const pelQty = {}; ps.forEach((o) => { const g = pelQty[nm(o.Pelanggan)] || (pelQty[nm(o.Pelanggan)] = { nama: o.Pelanggan, qty: 0, items: {} }); o.Items.forEach((i) => { const q = pcsItem(i); g.qty += q; g.items[i.Deskripsi] = (g.items[i.Deskripsi] || 0) + q; }); });
+  const plQty = Object.values(pelQty).sort((a, b) => b.qty - a.qty);
+  const fmtItemPel = (items) => Object.entries(items).sort((a, b) => b[1] - a[1]).map(([nama, q]) => `&nbsp;&nbsp;&nbsp;&nbsp;${esc(nama)} · ${nf(q)} pcs`).join('<br>');
+  out.push(K('pelqty', 'Total Gelas per Pelanggan', daftar('pelqty', plQty, (x) => `${esc(x.nama)} · ${nf(x.qty)} pcs<br>${fmtItemPel(x.items)}`)));
   const terakhir = {}; v.Pesanan.forEach((o) => { const k = nm(o.Pelanggan); if (!terakhir[k] || o.Tanggal > terakhir[k].t) terakhir[k] = { nama: o.Pelanggan, t: o.Tanggal }; });
   const diam = dari ? Object.values(terakhir).filter((x) => x.t < dari).sort((a, b) => (a.t < b.t ? -1 : 1)) : [];
   out.push(K('diam', 'Pelanggan Tidak Aktif', daftar('diam', diam, (x) => `${esc(x.nama)}<br>&nbsp;&nbsp;&nbsp;&nbsp;${tglDMY(x.t)} · ${selisihHari(x.t, sampai)} hari lalu`)));
