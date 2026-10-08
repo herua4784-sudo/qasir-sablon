@@ -512,7 +512,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.29', API_MIN = 14;
+const VERSI = '5.31', API_MIN = 14;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1696,9 +1696,11 @@ const nilaiStokPer = (v, tgl) => { const h = hitungStok(v, tgl); return Math.rou
 // Semua kejadian uang masuk / keluar (untuk Arus Kas dan saldo Kas & Bank)
 function aliranKas(v) {
   const ev = [], g = (t) => `<span class="g">${t}</span>`;
+  // Biaya Operator Mesin SENGAJA tidak dianggap uang keluar di sini: menurut alur Heru, ini dibayar belakangan sbg 1 setoran gabungan
+  // di awal bulan berikutnya (dicatat manual lewat Pengeluaran saat benar2 dibayar) - bukan tunai langsung per nota.
+  // Tetap dihitung normal sbg biaya di Laba Rugi (lihat labaRugi/lapOperator, sumbernya langsung dari o.BiayaOperator, tidak lewat aliranKas).
   v.Pesanan.forEach((o) => {
     o.Bayar.forEach((p) => ev.push({ t: String(p.Tanggal).slice(0, 10), masuk: true, v: Number(p.Jumlah) || 0, l1: `${g('Tanggal bayar')} ${tglDMY(p.Tanggal)}`, l2: `${g('Dari')} ${esc(o.Pelanggan)}`, l3: `↳ Penjualan ${tglDMY(o.Tanggal)}`, l4: `Total ${n0(o.Total)}` }));
-    if (o.BiayaOperator > 0) ev.push({ t: o.Tanggal, masuk: false, v: o.BiayaOperator, l1: `${g('Tanggal')} ${tglDMY(o.Tanggal)}`, l2: `${g('Untuk')} Biaya Operator Mesin`, l3: `↳ Penjualan ${tglDMY(o.Tanggal)} · ${esc(o.Pelanggan)}`, l4: `Total ${n0(o.BiayaOperator)}` });
   });
   v.Belanja.forEach((r) => {
     // Cash out pembelian mengikuti pembayaran sungguhan: dibayar saat/sebelum pembelian (baseline) + tiap cicilan pada tanggalnya sendiri.
