@@ -512,7 +512,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.26', API_MIN = 14;
+const VERSI = '5.27', API_MIN = 14;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1813,9 +1813,9 @@ function lapAnalisa(v) {
   const pl = Object.values(pel);
   out.push(K('pelbaik', 'Pelanggan Terbaik', daftar('pelbaik', pl.slice().sort((a, b) => b.total - a.total), (x) => `${esc(x.nama)} · ${n0(x.total)}<br>&nbsp;&nbsp;&nbsp;&nbsp;Modal Gelas ${n0(x.modal)} · Upah Operator ${n0(x.operator)} · Margin ${n0(x.total - x.modal - x.operator)}`)));
   out.push(K('piutang', 'Piutang Terbesar', daftar('piutang', pl.filter((x) => x.sisa > 0).sort((a, b) => b.sisa - a.sisa), (x) => `${esc(x.nama)} · ${n0(x.sisa)}`)));
-  const pelQty = {}; ps.forEach((o) => { const g = pelQty[nm(o.Pelanggan)] || (pelQty[nm(o.Pelanggan)] = { nama: o.Pelanggan, qty: 0, items: {} }); o.Items.forEach((i) => { const q = pcsItem(i); g.qty += q; g.items[i.Deskripsi] = (g.items[i.Deskripsi] || 0) + q; }); });
+  const pelQty = {}; ps.forEach((o) => { const g = pelQty[nm(o.Pelanggan)] || (pelQty[nm(o.Pelanggan)] = { nama: o.Pelanggan, qty: 0, items: {} }); o.Items.forEach((i) => { const q = pcsItem(i); g.qty += q; const it = g.items[i.Deskripsi] || (g.items[i.Deskripsi] = { qty: 0, barangId: i.BarangID }); it.qty += q; }); });
   const plQty = Object.values(pelQty).sort((a, b) => b.qty - a.qty);
-  const fmtItemPel = (items) => Object.entries(items).sort((a, b) => b[1] - a[1]).map(([nama, q]) => `&nbsp;&nbsp;&nbsp;&nbsp;${esc(nama)} · ${nf(q)} pcs`).join('<br>');
+  const fmtItemPel = (items) => Object.entries(items).sort((a, b) => b[1].qty - a[1].qty).map(([nama, it]) => { const hpp = it.barangId ? stokBarang(it.barangId).avg : 0; return `&nbsp;&nbsp;&nbsp;&nbsp;${esc(nama)} · ${nf(it.qty)} pcs${hpp ? ' · HPP ' + n0(Math.round(hpp)) + '/pcs' : ''}`; }).join('<br>');
   out.push(K('pelqty', 'Total Pesanan Gelas (pcs)', daftar('pelqty', plQty, (x) => `${esc(x.nama)} · ${nf(x.qty)} pcs<br>${fmtItemPel(x.items)}`)));
   const terakhir = {}; v.Pesanan.forEach((o) => { const k = nm(o.Pelanggan); if (!terakhir[k] || o.Tanggal > terakhir[k].t) terakhir[k] = { nama: o.Pelanggan, t: o.Tanggal }; });
   const diam = dari ? Object.values(terakhir).filter((x) => x.t < dari).sort((a, b) => (a.t < b.t ? -1 : 1)) : [];
