@@ -512,7 +512,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.31', API_MIN = 14;
+const VERSI = '5.32', API_MIN = 14;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1866,8 +1866,8 @@ function lapLabaJual(v) {
 function lapOperator(v) {
   // Biaya operator diinput per pcs pada tiap item nota. Biaya ini hanya muncul di laporan, tidak dicetak di nota.
   const d = dataLap(awalBulan(LP.bln + '-01'), akhirBulan(LP.bln + '-01')), ps = d.ps, out = [], its = []; ps.forEach((o) => o.Items.forEach((it) => its.push({ ...it, nota: o })));
-  const pcs = jml(its, pcsItem), biaya = jml(its, (i) => i.BiayaOperator), omzet = jml(its, (i) => i.Subtotal);
-  out.push(R('Total Penjualan', n0(omzet), '', `${ps.length} nota · ${nf(pcs)} pcs · sebelum dikurangi Biaya Operator`), R('Total Biaya Operator', n0(biaya), 'tebal', `${omzet ? nf(Math.round(biaya / omzet * 1000) / 10) : 0}% dari Total Penjualan`), R('Rata-rata per pcs', pcs ? nf(biaya / pcs) : '-'), JD('PER KATEGORI'));
+  const pcs = jml(its, pcsItem), biaya = jml(its, (i) => i.BiayaOperator);
+  out.push(R('Total Biaya Operator', n0(biaya), 'tebal', `${ps.length} nota · ${nf(pcs)} pcs dikerjakan`), R('Rata-rata per pcs', pcs ? nf(biaya / pcs) : '-'), JD('PER KATEGORI'));
   [KAT_ALLIN, KAT_JASA].forEach((k) => { const a = its.filter((i) => i.Kategori === k); if (a.length) out.push(R(k, n0(jml(a, (i) => i.BiayaOperator)), '', `${nf(jml(a, pcsItem))} pcs`)); });
   out.push(JD('PER ITEM'));
   grup(its, (i) => String(i.Deskripsi).trim().toLowerCase(), (i) => [i.BiayaOperator, pcsItem(i)]).sort((x, y) => y.a - x.a).forEach((g) => out.push(R(esc(g.c.Deskripsi), n0(g.a), '', `${nf(g.b)} pcs · rata-rata ${g.b ? nf(g.a / g.b) : '-'} per pcs`)));
