@@ -53,8 +53,8 @@
   .status { flex: none; text-align: center; font-size: 12.5px; padding: 5px; color: #666; background: #f0f0f0; }
   .status.err { color: #b91c1c; background: #fde8e8; }
   .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: #222; color: #fff; padding: 9px 16px; border-radius: 20px; font-size: 13.5px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; max-width: 85vw; text-align: center; }
-  #l_peny { position: fixed; inset: 0; max-width: 520px; margin: 0 auto; background: #fff; display: none; flex-direction: column; z-index: 20; }
-  #l_peny.on { display: flex; }
+  #l_peny, #l_bhn { position: fixed; inset: 0; max-width: 520px; margin: 0 auto; background: #fff; display: none; flex-direction: column; z-index: 20; }
+  #l_peny.on, #l_bhn.on { display: flex; }
   .form { padding: 16px; overflow: auto; flex: 1; }
   .form label { display: block; font-size: 13.5px; color: #555; margin: 16px 0 4px; }
   .form label:first-child { margin-top: 0; }
@@ -96,6 +96,10 @@
         <svg viewBox="0 0 24 24"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zM18 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
         <span>Stok</span>
       </button>
+      <button class="tb" data-t="bahan" onclick="pindahTab('bahan')">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-1-5V3.5L19.5 9H15z"/></svg>
+        <span>Bahan</span>
+      </button>
     </div>
   </div>
 </div>
@@ -123,10 +127,25 @@
     <div class="err" id="pn_err"></div>
   </div>
 </div>
+<div id="l_bhn">
+  <div class="bar"><button onclick="tutupBhn()" aria-label="Tutup"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button><div class="jdl">Catat Pemakaian Bahan</div></div>
+  <div class="form">
+    <label>Nama Bahan</label>
+    <div class="info" id="bn_nama">-</div>
+    <label for="bn_jml">Jumlah Dipakai</label>
+    <input id="bn_jml" type="number" inputmode="decimal" min="0" step="any">
+    <label for="bn_tgl">Tanggal</label>
+    <input id="bn_tgl" type="date">
+    <label for="bn_cat">Catatan (Opsional)</label>
+    <input id="bn_cat" autocomplete="off">
+    <button class="simpan" id="bn_simpan" onclick="simpanBhn()">Simpan</button>
+    <div class="err" id="bn_err"></div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <script>
 const K_CFG = 'qsg_op_cfg', K_DATA = 'qsg_op_data', K_QUEUE = 'qsg_op_queue';
-let CFG = null, DATA = { pesanan: [], stok: [] }, QUEUE = [], TAB = 'pesanan', WAKTU = null, sedangFlush = false;
+let CFG = null, DATA = { pesanan: [], stok: [], bahan: [] }, QUEUE = [], TAB = 'pesanan', WAKTU = null, sedangFlush = false;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = (x) => new Intl.NumberFormat('id-ID').format(Number(x) || 0);
@@ -139,8 +158,13 @@ function simpanCfgLokal() { try { localStorage.setItem(K_CFG, JSON.stringify(CFG
 function simpanDataLokal() { try { localStorage.setItem(K_DATA, JSON.stringify(DATA)); } catch (e) {} }
 function simpanQueueLokal() { try { localStorage.setItem(K_QUEUE, JSON.stringify(QUEUE)); } catch (e) {} }
 function uid() { return 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
-// Tampilkan stok dgn seluruh penyesuaian yg masih menunggu terkirim ikut diperhitungkan (supaya layar tetap benar walau belum tersinkron).
-function terapkanQueueOptimis() { QUEUE.forEach((q) => { const s = DATA.stok.find((x) => x.id === q.barangId); if (s) s.stok += q.jumlah; }); }
+// Tampilkan stok dgn seluruh penyesuaian/pemakaian bahan yg masih menunggu terkirim ikut diperhitungkan (supaya layar tetap benar walau belum tersinkron).
+function terapkanQueueOptimis() {
+  QUEUE.forEach((q) => {
+    if (q.kind === 'bhn') { const s = DATA.bahan.find((x) => x.id === q.bahanId); if (s) s.stok += q.jumlah; }
+    else { const s = DATA.stok.find((x) => x.id === q.barangId); if (s) s.stok += q.jumlah; }   // kind lama/kosong = penyesuaian stok gelas
+  });
+}
 
 function bukaSetup() {
   $('l_main').style.display = 'none'; $('l_setup').style.display = 'block';
@@ -161,7 +185,7 @@ async function panggil(body) {
 }
 function updateStatus(err, pesanErr) {
   const st = $('status'); st.style.display = ''; st.classList.toggle('err', !!err);
-  const antre = QUEUE.length ? `${QUEUE.length} penyesuaian menunggu dikirim` : '';
+  const antre = QUEUE.length ? `${QUEUE.length} catatan menunggu dikirim` : '';
   if (err) st.textContent = 'Gagal memuat: ' + pesanErr + (antre ? ' · ' + antre : '');
   else st.textContent = (WAKTU ? 'Data sampai ' + WAKTU.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '') + (antre ? (WAKTU ? ' · ' : '') + antre : '');
 }
@@ -172,9 +196,11 @@ async function flushQueue() {
   while (QUEUE.length) {
     const q = QUEUE[0];
     try {
-      const j = await panggil({ action: 'tambahPenyesuaian', id: q.id, barangId: q.barangId, tanggal: q.tanggal, jumlah: q.jumlah, alasan: q.alasan, catatan: q.catatan });
+      const j = q.kind === 'bhn'
+        ? await panggil({ action: 'tambahMutasiBahan', id: q.id, bahanId: q.bahanId, tanggal: q.tanggal, jumlah: q.jumlah, catatan: q.catatan })
+        : await panggil({ action: 'tambahPenyesuaian', id: q.id, barangId: q.barangId, tanggal: q.tanggal, jumlah: q.jumlah, alasan: q.alasan, catatan: q.catatan });
       QUEUE.shift(); simpanQueueLokal();
-      if (j.data) { DATA = { pesanan: j.data.pesanan || [], stok: j.data.stok || [] }; WAKTU = new Date(); terapkanQueueOptimis(); simpanDataLokal(); }
+      if (j.data) { DATA = { pesanan: j.data.pesanan || [], stok: j.data.stok || [], bahan: j.data.bahan || [] }; WAKTU = new Date(); terapkanQueueOptimis(); simpanDataLokal(); }
       render(); updateStatus();
     } catch (e) { break; }   // masih gagal (offline dsb) - coba lagi lain kali, jangan buang dari antrean
   }
@@ -186,7 +212,7 @@ async function segarkan(manual) {
   updateStatus(); $('status').textContent = 'Memuat data…';
   try {
     const j = await panggil({ action: 'dataOperator' });
-    DATA = { pesanan: j.pesanan || [], stok: j.stok || [] }; WAKTU = new Date();
+    DATA = { pesanan: j.pesanan || [], stok: j.stok || [], bahan: j.bahan || [] }; WAKTU = new Date();
     terapkanQueueOptimis(); simpanDataLokal();
     updateStatus();
     render();
@@ -197,8 +223,8 @@ async function segarkan(manual) {
 }
 function pindahTab(t) {
   TAB = t; document.querySelectorAll('.tabs .tb').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
-  $('judul').textContent = t === 'pesanan' ? 'Pesanan' : 'Stok Gelas';
-  $('cari').placeholder = t === 'pesanan' ? 'Cari nama pemesan atau item' : 'Cari nama item';
+  $('judul').textContent = t === 'pesanan' ? 'Pesanan' : t === 'stok' ? 'Stok Gelas' : 'Stok Bahan (M4/Tinta)';
+  $('cari').placeholder = t === 'pesanan' ? 'Cari nama pemesan atau item' : t === 'stok' ? 'Cari nama item' : 'Cari nama bahan';
   $('cari').value = ''; render();
 }
 function render() {
@@ -207,10 +233,14 @@ function render() {
     const arr = DATA.pesanan.filter((o) => !q || (o.pelanggan + ' ' + o.items.map((i) => i.nama + ' ' + (i.catatan || '')).join(' ')).toLowerCase().indexOf(q) >= 0);
     $('isi').innerHTML = arr.length ? arr.map((o) => `<div class="nrow"><div class="av">${esc(ini(o.pelanggan))}</div><div class="nb"><div class="l1"><span class="nm">${esc(o.pelanggan || 'CASH')}</span></div><div class="l2">${tglDMY(o.tanggal)}${o.jam ? ' ' + esc(o.jam) : ''}</div><div class="items">${o.items.map((i) => `<div class="irow"><span>${esc(i.nama)}</span><span class="q">${nf(i.jumlah)} ${esc(i.satuan)}</span></div>${i.catatan ? `<div class="cat">📝 ${esc(i.catatan)}</div>` : ''}`).join('')}</div></div></div>`).join('')
       : `<div class="kosong">${q ? 'Tidak ada pesanan yang cocok.' : 'Belum ada pesanan.'}</div>`;
-  } else {
+  } else if (TAB === 'stok') {
     const arr = DATA.stok.filter((s) => !q || s.nama.toLowerCase().indexOf(q) >= 0);
-    $('isi').innerHTML = arr.length ? arr.map((s) => { const n = QUEUE.filter((x) => x.barangId === s.id).length; return `<div class="crow" onclick="bukaPeny('${s.id}')"><div class="cb"><div class="c1"><span>${esc(s.nama)}${n ? ` <small style="color:#b45309;font-weight:600">(${n} menunggu kirim)</small>` : ''}</span><span class="r${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div></div></div>`; }).join('')
+    $('isi').innerHTML = arr.length ? arr.map((s) => { const n = QUEUE.filter((x) => x.kind !== 'bhn' && x.barangId === s.id).length; return `<div class="crow" onclick="bukaPeny('${s.id}')"><div class="cb"><div class="c1"><span>${esc(s.nama)}${n ? ` <small style="color:#b45309;font-weight:600">(${n} menunggu kirim)</small>` : ''}</span><span class="r${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div></div></div>`; }).join('')
       : `<div class="kosong">${q ? 'Tidak ada item yang cocok.' : 'Belum ada item.'}</div>`;
+  } else {
+    const arr = (DATA.bahan || []).filter((s) => !q || s.nama.toLowerCase().indexOf(q) >= 0);
+    $('isi').innerHTML = arr.length ? arr.map((s) => { const n = QUEUE.filter((x) => x.kind === 'bhn' && x.bahanId === s.id).length; return `<div class="crow" onclick="bukaBhn('${s.id}')"><div class="cb"><div class="c1"><span>${esc(s.nama)}${n ? ` <small style="color:#b45309;font-weight:600">(${n} menunggu kirim)</small>` : ''}</span><span class="r${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div></div></div>`; }).join('')
+      : `<div class="kosong">${q ? 'Tidak ada bahan yang cocok.' : 'Belum ada bahan terdaftar.'}</div>`;
   }
 }
 $('cari').addEventListener('input', () => { let t; clearTimeout(render._t); render._t = setTimeout(render, 120); });
@@ -230,12 +260,36 @@ function simpanPeny() {
   if (!(mag > 0)) { $('pn_err').textContent = 'Isi jumlah lebih dari 0.'; return; }
   const s = DATA.stok.find((x) => x.id === PN_ID); if (!s) return;
   const jumlah = $('pn_arah').value === 'tambah' ? mag : -mag;
-  QUEUE.push({ id: uid(), barangId: PN_ID, tanggal: $('pn_tgl').value || hariIni(), jumlah, alasan: $('pn_alasan').value, catatan: $('pn_cat').value.trim() });
+  QUEUE.push({ kind: 'peny', id: uid(), barangId: PN_ID, tanggal: $('pn_tgl').value || hariIni(), jumlah, alasan: $('pn_alasan').value, catatan: $('pn_cat').value.trim() });
   simpanQueueLokal();
   s.stok += jumlah;   // langsung terlihat di layar, tidak menunggu jawaban server
   tutupPeny(); render(); updateStatus();
   toast('Penyesuaian dicatat, mengirim…');
   flushQueue().then(() => { toast(QUEUE.length ? 'Belum ada sinyal - akan terkirim otomatis' : 'Penyesuaian terkirim ✓'); });
+}
+
+// Pemakaian Bahan (M4/Tinta): operator HANYA bisa mencatat stok berkurang (ambil dari gudang) - tidak bisa menambah stok di sini.
+// Pemantauan stok saja, tidak memengaruhi Laba Rugi/Arus Kas sama sekali.
+let BN_ID = null;
+function bukaBhn(id) {
+  const s = (DATA.bahan || []).find((x) => x.id === id); if (!s) return;
+  BN_ID = id;
+  $('bn_nama').textContent = `${s.nama} — stok saat ini ${nf(s.stok)} ${s.satuan}`;
+  $('bn_jml').value = ''; $('bn_tgl').value = hariIni(); $('bn_cat').value = ''; $('bn_err').textContent = '';
+  $('l_bhn').classList.add('on');
+}
+function tutupBhn() { $('l_bhn').classList.remove('on'); BN_ID = null; }
+function simpanBhn() {
+  const mag = Number($('bn_jml').value) || 0;
+  if (!(mag > 0)) { $('bn_err').textContent = 'Isi jumlah lebih dari 0.'; return; }
+  const s = (DATA.bahan || []).find((x) => x.id === BN_ID); if (!s) return;
+  const jumlah = -mag;
+  QUEUE.push({ kind: 'bhn', id: uid(), bahanId: BN_ID, tanggal: $('bn_tgl').value || hariIni(), jumlah, catatan: $('bn_cat').value.trim() });
+  simpanQueueLokal();
+  s.stok += jumlah;   // langsung terlihat di layar, tidak menunggu jawaban server
+  tutupBhn(); render(); updateStatus();
+  toast('Pemakaian bahan dicatat, mengirim…');
+  flushQueue().then(() => { toast(QUEUE.length ? 'Belum ada sinyal - akan terkirim otomatis' : 'Pemakaian bahan terkirim ✓'); });
 }
 
 muatCfg();
