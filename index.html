@@ -523,7 +523,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.34', API_MIN = 15;
+const VERSI = '5.35', API_MIN = 15;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -963,7 +963,7 @@ async function sinkron(paksa) {
     } while (S.queue.length);
     if (dataTerbaru) {
       const d = dataTerbaru.data;
-      S.snap = { Pesanan: d.Pesanan || [], Item: d.Item || [], Pembayaran: d.Pembayaran || [], PembayaranBeli: d.PembayaranBeli || [], Pelanggan: d.Pelanggan || [], Barang: d.Barang || [], Belanja: d.Belanja || [], Pengeluaran: d.Pengeluaran || [], Penyesuaian: d.Penyesuaian || [], Transfer: d.Transfer || [], Setelan: d.Setelan || [] };
+      S.snap = { Pesanan: d.Pesanan || [], Item: d.Item || [], Pembayaran: d.Pembayaran || [], PembayaranBeli: d.PembayaranBeli || [], Pelanggan: d.Pelanggan || [], Barang: d.Barang || [], Belanja: d.Belanja || [], Pengeluaran: d.Pengeluaran || [], Penyesuaian: d.Penyesuaian || [], Transfer: d.Transfer || [], Setelan: d.Setelan || [], Bahan: d.Bahan || [], MutasiBahan: d.MutasiBahan || [] };
       S.versi = dataTerbaru.versi; perluPenuh = false; _V = null;
     } else if (hasil && hasil.versi !== undefined) S.versi = hasil.versi;
     S.lastSync = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
