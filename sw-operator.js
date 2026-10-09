@@ -3,7 +3,7 @@
 // supaya tidak bentrok / tertimpa oleh cache aplikasi utama.
 // Operator.html sendiri sudah punya penyimpanan data terakhir + antrean lewat localStorage,
 // jadi service worker ini cukup menyimpan file HALAMANNYA saja supaya bisa dibuka tanpa internet.
-const CACHE = 'qasir-operator-v2';
+const CACHE = 'qasir-operator-v3';
 const FILES = ['./operator.html', './manifest-operator.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
