@@ -523,7 +523,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.35', API_MIN = 15;
+const VERSI = '5.36', API_MIN = 15;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1467,11 +1467,11 @@ const CRUD = {
     f: [{ k: 'Nama', l: 'Nama Bahan', w: 1, h: 'Contoh: M4, Tinta Green, Tinta Black, Tinta Yellow, dst - satu baris per bahan/warna.' },
       { k: 'Satuan', l: 'Satuan', def: 'liter', h: 'Contoh: liter, kg.' }],
     cari: (r) => r.Nama, urut: (a, b) => String(a.Nama).localeCompare(String(b.Nama), 'id'),
-    baris: (r) => { const s = stokBahan(r.ID); return `<div class="cb"><div class="c1"><span>${esc(r.Nama)}</span><span class="r ${s < 0 ? 'neg' : ''}">${nf(s)} ${esc(r.Satuan || '')}</span></div><div class="c2">Stok saat ini · pemantauan saja, tidak memengaruhi Laba Rugi/Arus Kas</div></div>`; } },
+    baris: (r) => { const s = stokBahan(r.ID); return `<div class="cb"><div class="c1"><span>${esc(r.Nama)}</span><span class="r ${s < 0 ? 'neg' : ''}">${nf(s)} ${esc(r.Satuan || '')}</span></div></div>`; } },
   mutasibahan: { sheet: 'MutasiBahan', judul: 'Catat Tambah/Pakai Bahan', tambah: 'Catat Mutasi Bahan', ubah: 'Ubah Mutasi Bahan', tgl: true,
     f: [{ k: 'Nama', l: 'Nama Bahan', t: 'dl', o: 'bhn', w: 1 }, { k: 'StokInfo', t: 'info' },
       { k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' },
-      { k: 'Arah', l: 'Arah', t: 'sel', o: ['Stok Berkurang (dipakai operator/menguap)', 'Stok Bertambah (beli/tambah stok)'], virt: 1 },
+      { k: 'Arah', l: 'Arah', t: 'sel', o: ['Stok Berkurang', 'Stok Bertambah'], virt: 1 },
       { k: 'JumlahAbs', l: 'Jumlah', t: 'number', pos: 1, w: 1, virt: 1 },
       { k: 'Catatan', l: 'Catatan (Opsional)' }],
     cari: (r) => [r.Nama, r.Catatan].join(' '), urut: (a, b) => String(b.Tanggal).localeCompare(String(a.Tanggal)),
@@ -1515,7 +1515,7 @@ function bukaForm(nama, id) {
     if (nama === 'penyesuaian' && f.k === 'JumlahAbs' && r) v = Math.abs(Number(r.Jumlah) || 0);
     if (nama === 'transfer' && f.k === 'Arah') v = (r && Number(r.Jumlah) >= 0) ? 'Tarik Kembali (masuk ke Kas & Bank)' : 'Setor ke Rekening Lain (keluar dari Kas & Bank)';
     if (nama === 'transfer' && f.k === 'JumlahAbs' && r) v = Math.abs(Number(r.Jumlah) || 0);
-    if (nama === 'mutasibahan' && f.k === 'Arah') v = (r && Number(r.Jumlah) >= 0) ? 'Stok Bertambah (beli/tambah stok)' : 'Stok Berkurang (dipakai operator/menguap)';
+    if (nama === 'mutasibahan' && f.k === 'Arah') v = (r && Number(r.Jumlah) >= 0) ? 'Stok Bertambah' : 'Stok Berkurang';
     if (nama === 'mutasibahan' && f.k === 'JumlahAbs' && r) v = Math.abs(Number(r.Jumlah) || 0);
     if (nama === 'pembelian' && f.k === 'SudahDibayar' && r) v = r.Dibayar;
     if (nama === 'pembelian' && r && r.BarangID && !Number(r.JumlahDus)) {     // pembelian versi lama: dianggap 1 dus berisi semuanya
@@ -1565,7 +1565,7 @@ function pasangMutasiBahan(r) {
   function segar() {
     const b = cocokBahan(g('Nama').value), el = $('ff_StokInfo'); if (!el) return;
     if (!b) { el.innerHTML = 'Nama bahan belum cocok dengan daftar di menu Stok Bahan.'; return; }
-    el.innerHTML = `Stok saat ini: <b>${nf(stokBahan(b.ID))} ${esc(b.Satuan || '')}</b> · pemantauan saja, tidak memengaruhi Laba Rugi/Arus Kas`;
+    el.innerHTML = `Stok saat ini: <b>${nf(stokBahan(b.ID))} ${esc(b.Satuan || '')}</b>`;
   }
   g('Nama').addEventListener('input', segar); g('Nama').addEventListener('change', segar); segar();
 }
