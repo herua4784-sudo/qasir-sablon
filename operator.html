@@ -39,6 +39,8 @@
   .crow .c1 { font-size: 17px; display: flex; justify-content: space-between; gap: 10px; }
   .crow .c1 .r { font-weight: 700; white-space: nowrap; }
   .crow .c1 .r.min { color: #d32f2f; }
+  .crow .chev { width: 20px; height: 20px; fill: #bbb; flex: none; }
+  .hint { padding: 10px 16px; font-size: 13px; color: #666; background: #f6f6f6; border-bottom: 1px solid #e2e2e2; }
   .tabs { display: flex; flex: none; background: #000; }
   .tabs button { flex: 1; background: none; border: 0; color: #aaa; padding: 10px 4px calc(10px + env(safe-area-inset-bottom, 0px)); font-size: 13px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; }
   .tabs button.on { color: #fff; }
@@ -235,11 +237,13 @@ function render() {
       : `<div class="kosong">${q ? 'Tidak ada pesanan yang cocok.' : 'Belum ada pesanan.'}</div>`;
   } else if (TAB === 'stok') {
     const arr = DATA.stok.filter((s) => !q || s.nama.toLowerCase().indexOf(q) >= 0);
-    $('isi').innerHTML = arr.length ? arr.map((s) => { const n = QUEUE.filter((x) => x.kind !== 'bhn' && x.barangId === s.id).length; return `<div class="crow" onclick="bukaPeny('${s.id}')"><div class="cb"><div class="c1"><span>${esc(s.nama)}${n ? ` <small style="color:#b45309;font-weight:600">(${n} menunggu kirim)</small>` : ''}</span><span class="r${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div></div></div>`; }).join('')
+    const hint = '<div class="hint">Ketuk nama item untuk mencatat penyesuaian stok (rusak/hilang/koreksi).</div>';
+    $('isi').innerHTML = arr.length ? hint + arr.map((s) => { const n = QUEUE.filter((x) => x.kind !== 'bhn' && x.barangId === s.id).length; return `<div class="crow" onclick="bukaPeny('${s.id}')"><div class="cb"><div class="c1"><span>${esc(s.nama)}${n ? ` <small style="color:#b45309;font-weight:600">(${n} menunggu kirim)</small>` : ''}</span><span class="r${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div></div><svg class="chev" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>`; }).join('')
       : `<div class="kosong">${q ? 'Tidak ada item yang cocok.' : 'Belum ada item.'}</div>`;
   } else {
     const arr = (DATA.bahan || []).filter((s) => !q || s.nama.toLowerCase().indexOf(q) >= 0);
-    $('isi').innerHTML = arr.length ? arr.map((s) => { const n = QUEUE.filter((x) => x.kind === 'bhn' && x.bahanId === s.id).length; return `<div class="crow" onclick="bukaBhn('${s.id}')"><div class="cb"><div class="c1"><span>${esc(s.nama)}${n ? ` <small style="color:#b45309;font-weight:600">(${n} menunggu kirim)</small>` : ''}</span><span class="r${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div></div></div>`; }).join('')
+    const hint = '<div class="hint">Ketuk nama bahan untuk mencatat pemakaian (ambil dari gudang).</div>';
+    $('isi').innerHTML = arr.length ? hint + arr.map((s) => { const n = QUEUE.filter((x) => x.kind === 'bhn' && x.bahanId === s.id).length; return `<div class="crow" onclick="bukaBhn('${s.id}')"><div class="cb"><div class="c1"><span>${esc(s.nama)}${n ? ` <small style="color:#b45309;font-weight:600">(${n} menunggu kirim)</small>` : ''}</span><span class="r${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div></div><svg class="chev" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>`; }).join('')
       : `<div class="kosong">${q ? 'Tidak ada bahan yang cocok.' : 'Belum ada bahan terdaftar.'}</div>`;
   }
 }
