@@ -38,7 +38,7 @@
   .ringkas { flex:none; padding:9px 16px; font-style:italic; color:#666; border-top:1px solid #eee; background:#fff; font-size:15px; }
   .strip { flex:none; text-align:center; font-size:13.5px; font-weight:600; padding:7px 12px; cursor:pointer; }
   .strip.warn { background:#fff0d6; color:var(--warn); } .strip.off { background:#e6e6e6; color:#555; } .strip.info { background:#dceffc; color:#0b6a99; }
-  #n_list, #ci_list, #cl_list { padding-bottom: 150px; }   /* ruang di bawah daftar supaya item terakhir tidak tertutup tombol + */
+  #n_list, #ci_list, #cl_list, #bi_list { padding-bottom: 150px; }   /* ruang di bawah daftar supaya item terakhir tidak tertutup tombol + */
   .fab { position:absolute; right:22px; bottom:84px; width:62px; height:62px; border-radius:50%; background:#000; color:#fff; border:0; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(0,0,0,.35); cursor:pointer; z-index:5; }
   .fab svg { width:30px; height:30px; }
   .tab .fab { bottom:70px; }
@@ -296,6 +296,16 @@
     <button class="fab" data-a="crudBaru" data-c="barang" aria-label="Tambah item"><i data-ic="add"></i></button>
   </section>
 
+  <!-- ================= TAB: BAHAN (M4/Tinta - pemantauan stok saja, terpisah dari Item gelas) ================= -->
+  <section class="tab" id="t_bahan">
+    <div class="bar putih"><div class="jdl" style="padding-left:16px">Bahan</div>
+      <button class="bi" data-a="menuBahan" aria-label="Menu"><i data-ic="more"></i></button></div>
+    <div class="cari"><input id="bi_cari" type="search" placeholder="Cari nama bahan" autocomplete="off"></div>
+    <div class="isi" id="bi_list"></div>
+    <div class="ringkas" id="bi_ringkas"></div>
+    <button class="fab" data-a="crudBaru" data-c="bahan" aria-label="Tambah bahan"><i data-ic="add"></i></button>
+  </section>
+
   <!-- ================= TAB: LAPORAN ================= -->
   <section class="tab" id="t_laporan">
     <div class="bar putih"><div class="jdl">Laporan</div></div>
@@ -351,6 +361,7 @@
   <nav class="nav" id="nav">
     <button class="on" data-a="tab" data-t="nota"><i data-ic="nota"></i>Nota</button>
     <button data-a="tab" data-t="item"><i data-ic="item"></i>Item</button>
+    <button data-a="tab" data-t="bahan"><i data-ic="bahan"></i>Bahan</button>
     <button data-a="tab" data-t="laporan"><i data-ic="laporan"></i>Laporan</button>
     <button data-a="tab" data-t="setting"><i data-ic="gear"></i>Setting</button>
   </nav>
@@ -512,7 +523,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.33', API_MIN = 15;
+const VERSI = '5.34', API_MIN = 15;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -585,7 +596,8 @@ const IC = {
   laporan: '<path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/>',
   gear: '<path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>',
   cekganda: '<path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/>',
-  jam: '<path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>'
+  jam: '<path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>',
+  bahan: '<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-1-5V3.5L19.5 9H15z"/>'
 };
 const svg = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[k] || ''}</svg>`;
 function pasangIkon() { document.querySelectorAll('i[data-ic]').forEach((el) => { el.outerHTML = svg(el.dataset.ic); }); }
@@ -823,7 +835,7 @@ function rowNota(o) {
 // Daftar nota dimuat bertahap (60 baris, lalu 60 lagi saat digulir) supaya tetap ringan walau notanya ribuan.
 const HALAMAN_NOTA = 60;
 let notaHasil = [], notaTampil = 0, sigDatalist = '', renderTertunda = false;
-const kotor = { nota: true, item: true, list: true, setting: true };
+const kotor = { nota: true, item: true, bahan: true, list: true, setting: true };
 const htmlLagi = () => '<div class="kosong" id="n_lagi">Gulir ke bawah untuk memuat nota lainnya…</div>';
 function renderNota(v) {
   notaHasil = saringNota(v);
@@ -845,6 +857,11 @@ function renderItemTab(v) {
   $('ci_list').classList.toggle('pilih', brgSelMode);
   $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null);
   $('ci_ringkas').textContent = `Nilai stok ${n0(Math.round(jml(Object.keys(v.stok), (k) => v.stok[k].nilai)))} dari ${v.Barang.length} item.`;
+}
+// Tab Bahan (M4/Tinta): pemantauan jumlah stok saja, menu terpisah dari Item (gelas) - tidak memengaruhi Laba Rugi/Arus Kas.
+function renderBahanTab(v) {
+  $('bi_list').innerHTML = daftarCrud('bahan', $('bi_cari'), null);
+  $('bi_ringkas').textContent = `${v.Bahan.length} bahan terdaftar.`;
 }
 // ---------- mode pilih di menu Item (tekan-tahan -> pilih beberapa -> hapus sekaligus) ----------
 function bukaBrgAksi(row) {
@@ -874,11 +891,12 @@ function hapusBrgTerpilih() {
   brgSelMode = false; brgSelSet.clear(); renderItemTab(lihat());
 }
 // render(): data berubah. Hanya bagian yang sedang tampil yang digambar ulang; sisanya digambar saat dibuka.
-function render() { kotor.nota = kotor.item = kotor.list = kotor.setting = true; renderTampil(); }
+function render() { kotor.nota = kotor.item = kotor.bahan = kotor.list = kotor.setting = true; renderTampil(); }
 function renderTampil() {
   const v = lihat(), aktif = (id) => $(id).classList.contains('on');
   if (aktif('t_nota') && kotor.nota) { renderNota(v); kotor.nota = false; }
   if (aktif('t_item') && kotor.item) { renderItemTab(v); kotor.item = false; }
+  if (aktif('t_bahan') && kotor.bahan) { renderBahanTab(v); kotor.bahan = false; }
   if (aktif('l_list') && kotor.list) { renderDaftarList(); kotor.list = false; }
   if (!aktif('t_setting') && kotor.setting) { isiSetting(); kotor.setting = false; }
   const sig = v.Pelanggan.map((p) => p.Nama).join('\n') + '\u0001' + v.Barang.map((b) => b.Nama).join('\n');
@@ -2079,7 +2097,8 @@ const ACT = {
   strip: () => { if (!S.cfg.url || !S.cfg.token) bukaTab('setting'); else sinkron(); },
   cariNota: () => { const r = $('n_carirow'), buka = r.style.display === 'none'; r.style.display = buka ? '' : 'none'; if (buka) $('n_cari').focus(); else { $('n_cari').value = ''; render(); } },
   menuNota: () => popup([{ a: 'menuBuka', d: 'pelanggan', t: 'Pelanggan' }, { a: 'menuBuka', d: 'pembelian', t: 'Pembelian' }, { a: 'menuBuka', d: 'pengeluaran', t: 'Pengeluaran' }, { a: 'menuBuka', d: 'transfer', t: 'Transfer / Setoran' }]),
-  menuItem: () => popup([{ a: 'menuBuka', d: 'penyesuaian', t: 'Penyesuaian Stok' }, { a: 'menuBuka', d: 'bahan', t: 'Stok Bahan (M4/Tinta)' }, { a: 'menuBuka', d: 'mutasibahan', t: 'Catat Tambah/Pakai Bahan' }]),
+  menuItem: () => popup([{ a: 'menuBuka', d: 'penyesuaian', t: 'Penyesuaian Stok' }]),
+  menuBahan: () => popup([{ a: 'menuBuka', d: 'mutasibahan', t: 'Catat Tambah/Pakai Bahan' }]),
   menuBuka: (el) => bukaDaftar(el.dataset.d),
   filter: () => { $('fl_bulan').value = F.bulan; $('fl_status').value = F.status; $('dlgFilter').showModal(); },
   filterOK: () => { F.bulan = $('fl_bulan').value; F.status = $('fl_status').value; notaTampil = 0; $('dlgFilter').close(); render(); },
@@ -2208,6 +2227,7 @@ $('n_cari').addEventListener('input', tunda(() => { notaTampil = 0; renderNota(l
 $('dk_baru').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tambahKatBaru(); } });
 ['u_saldo', 'it_harga', 'it_jml', 'it_op', 'b_jml', 'bb_jml'].forEach((id) => pasangRibuan($(id)));
 $('ci_cari').addEventListener('input', tunda(() => { $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null); }, 150));
+$('bi_cari').addEventListener('input', tunda(() => { $('bi_list').innerHTML = daftarCrud('bahan', $('bi_cari'), null); }, 150));
 $('cl_cari').addEventListener('input', tunda(renderDaftarList, 150));
 $('cl_bulan').addEventListener('change', renderDaftarList);
 $('pl_cari').addEventListener('input', tunda(renderPilih, 150));
