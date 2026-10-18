@@ -178,6 +178,7 @@
   .kl[data-a] { cursor:pointer; }
   .kl .kj { font-size:20px; font-weight:600; }
   .kl .kb { color:#666; font-size:15.5px; margin-top:6px; line-height:1.55; }
+  .kl[data-d="pelqty"] .kb { white-space:nowrap; overflow-x:auto; }
   .kl .cv { position:absolute; right:16px; top:14px; font-size:30px; line-height:1; color:#777; transition:transform .15s; }
   .kl.buka .cv { transform:rotate(90deg); }
   .kl .donat { width:120px; height:120px; margin:10px 0 2px 20px; display:block; }
@@ -523,7 +524,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.37', API_MIN = 15;
+const VERSI = '5.38', API_MIN = 15;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
