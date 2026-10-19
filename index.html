@@ -317,6 +317,7 @@
       <button data-a="lap" data-k="labajual">Laba Penjualan</button>
       <button data-a="lap" data-k="operator">Biaya Operator</button>
       <button data-a="lap" data-k="lababersih">Laba Bersih</button>
+      <button data-a="lap" data-k="rekor">Rekor Pencapaian</button>
       <button data-a="lap" data-k="aruskas">Arus Kas</button>
       <button data-a="lap" data-k="nilaistok">Nilai Stok</button>
       <button data-a="lap" data-k="riwayat">Riwayat Aktivitas</button>
@@ -524,7 +525,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.38', API_MIN = 15;
+const VERSI = '5.40', API_MIN = 15;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1675,7 +1676,7 @@ function hapusForm() {
 }
 
 // ---------- laporan ----------
-const LAP = { summary: 'Summary', analisa: 'Analisa Penjualan', harian: 'Rekap Penjualan Harian', labajual: 'Laba Penjualan', operator: 'Biaya Operator', lababersih: 'Laba Bersih', aruskas: 'Arus Kas', nilaistok: 'Nilai Stok', riwayat: 'Riwayat Aktivitas' };
+const LAP = { summary: 'Summary', analisa: 'Analisa Penjualan', harian: 'Rekap Penjualan Harian', labajual: 'Laba Penjualan', operator: 'Biaya Operator', lababersih: 'Laba Bersih', rekor: 'Rekor Pencapaian', aruskas: 'Arus Kas', nilaistok: 'Nilai Stok', riwayat: 'Riwayat Aktivitas' };
 const BLN3 = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES'];
 const HARI_N = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 const WARNA = ['#2ecc71', '#f1c40f', '#e74c3c', '#3498db'];       // hijau, kuning, merah, biru
@@ -1712,6 +1713,7 @@ function renderKontrol() {
     h.push(`<div class="baris2">${pilih('bulanM', optM, LP.bln.slice(5))}${pilih('bulanY', optY, LP.bln.slice(0, 4))}</div>`);
     if (k === 'analisa') h.push(pilih('per', PERIODE_ANALISA, LP.per));
   } else if (k === 'nilaistok') h.push(tgl('tgl', LP.tgl), `<input class="cr" data-f="cari" placeholder="Search" value="${esc(LP.cari)}" autocomplete="off">`);
+  else if (k === 'rekor') { /* tanpa kontrol - selalu menyapu seluruh riwayat per bulan kalender */ }
   else {
     h.push(`<div class="baris2">${tgl('dari', LP.dari)}${tgl('sampai', LP.sampai)}</div>`);
     if (k === 'aruskas') h.push(pilih('via', [['', 'Semua'], ['in', 'Cash In (uang masuk)'], ['out', 'Cash Out (uang keluar)']], LP.via));
@@ -1957,6 +1959,31 @@ function lapLabaBersih(v) {
   return out;
 }
 
+// ================= REKOR PENCAPAIAN =================
+// Menyapu seluruh riwayat nota, dikelompokkan per bulan kalender (sama caranya dgn Laba Bersih),
+// lalu mengambil nilai TERTINGGI yg pernah dicapai utk tiap metrik + bulan pencapaiannya.
+function lapRekor(v) {
+  if (!v.Pesanan.length) return ['<div class="kosong">Belum ada data nota.</div>'];
+  const bulanSet = new Set(v.Pesanan.map((o) => String(o.Tanggal).slice(0, 7)));
+  const bulanAda = Array.from(bulanSet).sort();
+  const rek = {};
+  const cek = (kunci, nilai, bln) => { if (!rek[kunci] || nilai > rek[kunci].v) rek[kunci] = { v: nilai, bln }; };
+  bulanAda.forEach((bln) => {
+    const d = dataLap(awalBulan(bln + '-01'), akhirBulan(bln + '-01')), L = labaRugi(d);
+    const qty = jml(d.ps.flatMap((o) => o.Items), pcsItem);
+    cek('nota', d.ps.length, bln); cek('qty', qty, bln); cek('pj', L.pj, bln);
+    cek('modal', L.modal, bln); cek('kotor', L.kotor, bln);
+    cek('biaya', L.op + L.bahan + L.peng + L.rugi, bln); cek('bersih', L.bersih, bln);
+  });
+  const baris = (t, kunci, sub) => R(t, n0(rek[kunci].v), 'tebal', bulanLabel(rek[kunci].bln) + (sub ? ' · ' + sub : ''));
+  const out = [`<div class="kosong">Nilai tertinggi yg pernah dicapai dalam 1 bulan kalender, dari ${bulanAda.length} bulan berjalan (${bulanLabel(bulanAda[0])} sd ${bulanLabel(bulanAda[bulanAda.length - 1])}).</div>`];
+  out.push(baris('Jumlah Nota', 'nota'), baris('Total Qty (pcs)', 'qty'), baris('Penjualan', 'pj'),
+    baris('Modal (HPP Barang Terjual)', 'modal', 'HPP rata-rata tertimbang: harga beli + biaya travel'),
+    baris('Laba Kotor', 'kotor'), baris('Total Biaya', 'biaya', 'Operator + Bahan Habis Pakai + Pengeluaran lain + Kerugian Stok'),
+    baris('LABA BERSIH', 'bersih'));
+  return out;
+}
+
 // ================= ARUS KAS =================
 function lapArusKas(v) {
   const ev = aliranKas(v), awal = kasSampai(ev, LP.dari, true), dlm = ev.filter((e) => e.t >= LP.dari && e.t <= LP.sampai);
@@ -2040,7 +2067,7 @@ function simpanLog() {
 
 // ================= penyusun laporan =================
 function renderLap() {
-  const fn = { summary: lapSummary, analisa: lapAnalisa, harian: lapHarian, labajual: lapLabaJual, operator: lapOperator, lababersih: lapLabaBersih, aruskas: lapArusKas, nilaistok: lapNilaiStok, riwayat: lapRiwayat }[LP.k];
+  const fn = { summary: lapSummary, analisa: lapAnalisa, harian: lapHarian, labajual: lapLabaJual, operator: lapOperator, lababersih: lapLabaBersih, rekor: lapRekor, aruskas: lapArusKas, nilaistok: lapNilaiStok, riwayat: lapRiwayat }[LP.k];
   LP.foot = '';
   const out = fn(lihat());
   $('lp_isi').innerHTML = out.join('');
