@@ -525,7 +525,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.40', API_MIN = 15;
+const VERSI = '5.42', API_MIN = 15;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -562,6 +562,9 @@ const waktu = (o) => tglDMY(o.Tanggal) + (o.Jam ? ' ' + o.Jam : '');
 const bulanLabel = (b) => (b ? BLN[+b.slice(5, 7) - 1] + ' ' + b.slice(0, 4) : '');
 const normKat = (x) => (String(x || '').indexOf('Jasa') === 0 ? KAT_JASA : KAT_ALLIN);
 const pcsItem = (it) => (Number(it.Jumlah) || 0) * (PCS_PER[String(it.Satuan || 'pcs').trim().toLowerCase()] || 1);
+// Item dgn nama mengandung "LID"/"Tutup" sengaja TIDAK dihitung sbg Total Qty (pcs) gelas di semua laporan (bukan item gelas).
+const BUKAN_GELAS = /lid|tutup/i;
+const pcsGelas = (items) => items.reduce((a, it) => a + (BUKAN_GELAS.test(it.Deskripsi || '') ? 0 : pcsItem(it)), 0);
 const diskonRp = (bruto, teks) => {           // harus sama dengan hitungan di Apps Script
   const t = String(teks == null ? '' : teks).trim().replace(',', '.');
   if (!t) return 0;
@@ -1843,7 +1846,7 @@ function lapSummary(v) {
   out.push(`<div class="saldo"><h3>Saldo per ${tglPanjang(tgl)}</h3>${R('Stok', n0(nilaiStokPer(v, tgl)))}${R('Kas &amp; Bank', n0(kasSampai(kas, tgl, false)))}${R('Piutang', n0(piu))}${R('Hutang', n0(hut))}</div>`);
   // ringkasan angka bulan terpilih
   const d = dataLap(awalBulan(bln + '-01'), akhir), L = labaRugi(d), perKat = grup(d.pg, (r) => r.Kategori || 'Lainnya', (r) => [Number(r.Jumlah) || 0, 0]).sort((x, y) => y.a - x.a);
-  out.push(JD('RINGKASAN ' + bulanLabel(bln).toUpperCase()), R('Jumlah Nota', d.ps.length), R('Total Qty (pcs)', nf(jml(d.ps, (o) => o.Jumlah))), R('Penjualan', n0(L.pj)),
+  out.push(JD('RINGKASAN ' + bulanLabel(bln).toUpperCase()), R('Jumlah Nota', d.ps.length), R('Total Qty (pcs)', nf(jml(d.ps, (o) => pcsGelas(o.Items)))), R('Penjualan', n0(L.pj)),
     R('Modal (HPP Barang Terjual)', '− ' + n0(L.modal), '', L.tanpa ? `${L.tanpa} item All-In belum punya HPP (bukan item stok / belum ada pembelian)` : 'HPP rata-rata tertimbang: harga beli + biaya travel'), R('Laba Kotor', warnaAngka(L.kotor), 'tebal'),
     R('Biaya Operator Mesin', '− ' + n0(L.op)), R('Bahan Habis Pakai', '− ' + n0(L.bahan), '', `${d.blBiasa.length} pembelian bahan biasa`),
     ...perKat.map((g) => R('&nbsp;&nbsp;' + esc(g.k), '− ' + n0(g.a), '', `${g.n} catatan`)),
@@ -1874,7 +1877,7 @@ function lapAnalisa(v) {
   const pl = Object.values(pel);
   out.push(K('pelbaik', 'Pelanggan Terbaik', daftar('pelbaik', pl.slice().sort((a, b) => b.total - a.total), (x) => `${esc(x.nama)} · ${n0(x.total)}<br>&nbsp;&nbsp;&nbsp;&nbsp;HPP Cup ${n0(x.modal)} · Operator ${n0(x.operator)} · Margin ${n0(x.total - x.modal - x.operator)}`)));
   out.push(K('piutang', 'Piutang Terbesar', daftar('piutang', pl.filter((x) => x.sisa > 0).sort((a, b) => b.sisa - a.sisa), (x) => `${esc(x.nama)} · ${n0(x.sisa)}`)));
-  const pelQty = {}; ps.forEach((o) => { const g = pelQty[nm(o.Pelanggan)] || (pelQty[nm(o.Pelanggan)] = { nama: o.Pelanggan, qty: 0, items: {} }); o.Items.forEach((i) => { const q = pcsItem(i); g.qty += q; const it = g.items[i.Deskripsi] || (g.items[i.Deskripsi] = { qty: 0, barangId: i.BarangID, allin: 0 }); it.qty += q; if (i.Kategori === KAT_ALLIN) it.allin += q; }); });
+  const pelQty = {}; ps.forEach((o) => { const g = pelQty[nm(o.Pelanggan)] || (pelQty[nm(o.Pelanggan)] = { nama: o.Pelanggan, qty: 0, items: {} }); o.Items.filter((i) => !BUKAN_GELAS.test(i.Deskripsi || '')).forEach((i) => { const q = pcsItem(i); g.qty += q; const it = g.items[i.Deskripsi] || (g.items[i.Deskripsi] = { qty: 0, barangId: i.BarangID, allin: 0 }); it.qty += q; if (i.Kategori === KAT_ALLIN) it.allin += q; }); });
   const plQty = Object.values(pelQty).sort((a, b) => b.qty - a.qty);
   const fmtItemPel = (items) => Object.entries(items).sort((a, b) => b[1].qty - a[1].qty).map(([nama, it]) => { const hpp = (it.barangId && it.allin > 0) ? stokBarang(it.barangId).avg : 0; return `&nbsp;&nbsp;&nbsp;&nbsp;${esc(nama)} · ${nf(it.qty)} pcs${hpp ? ' · HPP ' + n0(Math.round(hpp)) + '/pcs (' + nf(it.allin) + ' pcs All-In)' : ''}`; }).join('<br>');
   out.push(K('pelqty', 'Total Pesanan Gelas (pcs)', daftar('pelqty', plQty, (x) => `${esc(x.nama)} · ${nf(x.qty)} pcs<br>${fmtItemPel(x.items)}`)));
@@ -1895,7 +1898,7 @@ function lapAnalisa(v) {
   out.push(K('jam', 'Jam Penjualan', jMax ? `Jam tersibuk: ${String(jam.indexOf(jMax)).padStart(2, '0')}:00 (${jMax} nota)${grafikBatang(jam.map((_, i) => (i % 6 === 0 ? String(i).padStart(2, '0') : '')), jam)}` : kosong, false));
   out.push(K('hari', 'Hari Penjualan', hMax ? `Hari tersibuk: ${HARI_N[hr.indexOf(hMax)]} (${hMax} penjualan)${grafikBatang(HARI_N.map((x) => x.slice(0, 3)), hr)}` : kosong, false));
   out.push(K('ratanota', 'Rata-rata Nilai Nota', ps.length ? `Rata-rata ${n0(Math.round(jml(ps, (o) => o.Total) / ps.length))} dari ${ps.length} nota` : kosong, false));
-  out.push(K('rataitem', 'Rata-rata Item per Nota', ps.length ? `Rata-rata ${nf(jml(ps, (o) => o.Jumlah) / ps.length)} qty per nota` : kosong, false));
+  out.push(K('rataitem', 'Rata-rata Item per Nota', ps.length ? `Rata-rata ${nf(jml(ps, (o) => pcsGelas(o.Items)) / ps.length)} qty per nota` : kosong, false));
   const via = grup(d.byr, (p) => p.Via || 'Tanpa keterangan', (p) => [p.Jumlah, 0]).sort((a, b) => b.a - a.a);
   out.push(K('via', 'Metode Pembayaran', via.length ? via.map((g) => `${esc(g.k)} · ${n0(g.a)} (${g.n})`).join('<br>') + grafikDonat(via.map((g) => ({ v: g.a }))) : kosong, false));
   const kat = [KAT_ALLIN, KAT_JASA].map((k) => { const a = []; ps.forEach((o) => o.Items.forEach((i) => { if (i.Kategori === k) a.push(i); })); return { k, n: a.length, q: jml(a, pcsItem), t: jml(a, (i) => i.Subtotal) }; }).filter((x) => x.n);
@@ -1970,7 +1973,7 @@ function lapRekor(v) {
   const cek = (kunci, nilai, bln) => { if (!rek[kunci] || nilai > rek[kunci].v) rek[kunci] = { v: nilai, bln }; };
   bulanAda.forEach((bln) => {
     const d = dataLap(awalBulan(bln + '-01'), akhirBulan(bln + '-01')), L = labaRugi(d);
-    const qty = jml(d.ps.flatMap((o) => o.Items), pcsItem);
+    const qty = pcsGelas(d.ps.flatMap((o) => o.Items));
     cek('nota', d.ps.length, bln); cek('qty', qty, bln); cek('pj', L.pj, bln);
     cek('modal', L.modal, bln); cek('kotor', L.kotor, bln);
     cek('biaya', L.op + L.bahan + L.peng + L.rugi, bln); cek('bersih', L.bersih, bln);
