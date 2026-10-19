@@ -43,9 +43,12 @@
   .fab svg { width:30px; height:30px; }
   .tab .fab { bottom:70px; }
   .nav { position:absolute; left:0; right:0; bottom:0; height:calc(64px + env(safe-area-inset-bottom, 0px)); padding-bottom:env(safe-area-inset-bottom, 0px); display:flex; background:#f6f6f6; border-top:1px solid #e4e4e4; z-index:10; }
-  .nav button { flex:1; border:0; background:none; color:#666; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:14px; cursor:pointer; }
+  .nav button { position:relative; flex:1; border:0; background:none; color:#666; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:14px; cursor:pointer; }
   .nav button svg { width:26px; height:26px; }
   .nav button.on { color:#000; font-weight:700; }
+  .nav .bdg { display:none; position:absolute; top:2px; right:50%; margin-right:-22px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:#e74c3c; color:#fff; font-size:10px; font-weight:700; line-height:16px; text-align:center; }
+  .nav .bdg.on { display:block; }
+  .ringkas .menipis { font-style:normal; color:#c0392b; background:#fdecea; border-radius:10px; padding:8px 10px; margin-bottom:8px; line-height:1.5; }
 
   /* ---- daftar nota ---- */
   .nrow { display:flex; gap:14px; padding:14px 16px 12px; border-bottom:1px solid #d9d9d9; cursor:pointer; }
@@ -362,8 +365,8 @@
 
   <nav class="nav" id="nav">
     <button class="on" data-a="tab" data-t="nota"><i data-ic="nota"></i>Nota</button>
-    <button data-a="tab" data-t="item"><i data-ic="item"></i>Item</button>
-    <button data-a="tab" data-t="bahan"><i data-ic="bahan"></i>Bahan</button>
+    <button data-a="tab" data-t="item"><i data-ic="item"></i>Item<span class="bdg" id="nv_item"></span></button>
+    <button data-a="tab" data-t="bahan"><i data-ic="bahan"></i>Bahan<span class="bdg" id="nv_bahan"></span></button>
     <button data-a="tab" data-t="laporan"><i data-ic="laporan"></i>Laporan</button>
     <button data-a="tab" data-t="setting"><i data-ic="gear"></i>Setting</button>
   </nav>
@@ -525,7 +528,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.42', API_MIN = 15;
+const VERSI = '5.43', API_MIN = 15;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -735,6 +738,45 @@ function tampilan() {
 // menyentuh Laba Rugi atau Arus Kas (sesuai permintaan: ini murni pemantauan stok).
 const stokBahan = (id) => jml(lihat().MutasiBahan.filter((r) => r.BahanID === id), (r) => r.Jumlah);
 const cocokBahan = (nama) => { const nm = String(nama || '').trim().toLowerCase(); return nm ? lihat().Bahan.find((x) => String(x.Nama).trim().toLowerCase() === nm) : null; };
+
+// ---------- Notifikasi Stok Menipis (Item gelas & Bahan M4/Tinta) ----------
+// Tolok ukur: rata-rata pemakaian per bulan dihitung dari 3 bulan terakhir (termasuk bulan berjalan).
+// "Hampir habis" = sisa stok < separuh pemakaian rata-rata sebulan (perkiraan akan habis dlm < 2 minggu).
+const JENDELA_PEMAKAIAN = 3, AMBANG_MENIPIS = 0.5;
+function pemakaianBulananBarang(v) {
+  const sampai = hariIni(), dari = tambahBulan(awalBulan(sampai), -(JENDELA_PEMAKAIAN - 1)), m = {};
+  v.Pesanan.forEach((o) => { if (String(o.Tanggal).slice(0, 10) < dari) return; o.Items.forEach((i) => { if (i.BarangID && i.Kategori === KAT_ALLIN) m[i.BarangID] = (m[i.BarangID] || 0) + pcsItem(i); }); });
+  Object.keys(m).forEach((id) => { m[id] = m[id] / JENDELA_PEMAKAIAN; });
+  return m;
+}
+function pemakaianBulananBahan(v) {
+  const sampai = hariIni(), dari = tambahBulan(awalBulan(sampai), -(JENDELA_PEMAKAIAN - 1)), m = {};
+  v.MutasiBahan.forEach((r) => { if (r.Jumlah >= 0 || String(r.Tanggal).slice(0, 10) < dari) return; m[r.BahanID] = (m[r.BahanID] || 0) + (-r.Jumlah); });
+  Object.keys(m).forEach((id) => { m[id] = m[id] / JENDELA_PEMAKAIAN; });
+  return m;
+}
+function daftarMenipisBarang(v) {
+  const pakai = pemakaianBulananBarang(v);
+  return v.Barang.filter((b) => pakai[b.ID] > 0 && stokBarang(b.ID).stok < pakai[b.ID] * AMBANG_MENIPIS)
+    .map((b) => ({ id: b.ID, nama: b.Nama, satuan: b.Satuan || 'pcs', stok: stokBarang(b.ID).stok, avg: pakai[b.ID] }))
+    .sort((a, b2) => (a.stok / a.avg) - (b2.stok / b2.avg));
+}
+function daftarMenipisBahan(v) {
+  const pakai = pemakaianBulananBahan(v);
+  return v.Bahan.filter((bh) => pakai[bh.ID] > 0 && stokBahan(bh.ID) < pakai[bh.ID] * AMBANG_MENIPIS)
+    .map((bh) => ({ id: bh.ID, nama: bh.Nama, satuan: bh.Satuan || '', stok: stokBahan(bh.ID), avg: pakai[bh.ID] }))
+    .sort((a, b2) => (a.stok / a.avg) - (b2.stok / b2.avg));
+}
+const teksMenipis = (x) => `Sisa ${nf(x.stok)} ${esc(x.satuan)} · pakai rata² ${nf(Math.round(x.avg))} ${esc(x.satuan)}/bulan · perkiraan habis ±${Math.max(0, Math.round(x.stok / x.avg * 30))} hari lagi`;
+let _badgeV = null, _menipisBarangIds = new Set(), _menipisBahanIds = new Set(), _menipisBarangList = [], _menipisBahanList = [];
+function setBadgeNav(id, n) { const el = $(id); if (!el) return; el.textContent = n > 99 ? '99+' : (n || ''); el.classList.toggle('on', n > 0); }
+function perbaruiBadgeStok(v) {
+  if (_badgeV === v) return;
+  _badgeV = v;
+  _menipisBarangList = daftarMenipisBarang(v); _menipisBahanList = daftarMenipisBahan(v);
+  _menipisBarangIds = new Set(_menipisBarangList.map((x) => x.id)); _menipisBahanIds = new Set(_menipisBahanList.map((x) => x.id));
+  setBadgeNav('nv_item', _menipisBarangList.length); setBadgeNav('nv_bahan', _menipisBahanList.length);
+}
 // Stok & HPP (rata-rata tertimbang). Semua kejadian diputar ulang berurutan waktu:
 //  stok awal -> pembelian (harga + biaya travel) -> penjualan Harga All-In (mengurangi stok, modal = jumlah x HPP saat itu)
 function hitungStok(L, sampai) {           // sampai (YYYY-MM-DD, opsional): posisi stok pada akhir tanggal itu
@@ -861,12 +903,16 @@ function renderItemTab(v) {
   $('t_item').classList.toggle('pilih', brgSelMode);
   $('ci_list').classList.toggle('pilih', brgSelMode);
   $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null);
-  $('ci_ringkas').textContent = `Nilai stok ${n0(Math.round(jml(Object.keys(v.stok), (k) => v.stok[k].nilai)))} dari ${v.Barang.length} item.`;
+  const menipis = _menipisBarangList;
+  const peringatan = menipis.length ? `<div class="menipis">⚠ ${menipis.length} item stok menipis<br>${menipis.map((x) => `${esc(x.nama)} · ${teksMenipis(x)}`).join('<br>')}</div>` : '';
+  $('ci_ringkas').innerHTML = peringatan + `Nilai stok ${n0(Math.round(jml(Object.keys(v.stok), (k) => v.stok[k].nilai)))} dari ${v.Barang.length} item.`;
 }
 // Tab Bahan (M4/Tinta): pemantauan jumlah stok saja, menu terpisah dari Item (gelas) - tidak memengaruhi Laba Rugi/Arus Kas.
 function renderBahanTab(v) {
   $('bi_list').innerHTML = daftarCrud('bahan', $('bi_cari'), null);
-  $('bi_ringkas').textContent = `${v.Bahan.length} bahan terdaftar.`;
+  const menipis = _menipisBahanList;
+  const peringatan = menipis.length ? `<div class="menipis">⚠ ${menipis.length} bahan stok menipis<br>${menipis.map((x) => `${esc(x.nama)} · ${teksMenipis(x)}`).join('<br>')}</div>` : '';
+  $('bi_ringkas').innerHTML = peringatan + `${v.Bahan.length} bahan terdaftar.`;
 }
 // ---------- mode pilih di menu Item (tekan-tahan -> pilih beberapa -> hapus sekaligus) ----------
 function bukaBrgAksi(row) {
@@ -899,6 +945,7 @@ function hapusBrgTerpilih() {
 function render() { kotor.nota = kotor.item = kotor.bahan = kotor.list = kotor.setting = true; renderTampil(); }
 function renderTampil() {
   const v = lihat(), aktif = (id) => $(id).classList.contains('on');
+  perbaruiBadgeStok(v);
   if (aktif('t_nota') && kotor.nota) { renderNota(v); kotor.nota = false; }
   if (aktif('t_item') && kotor.item) { renderItemTab(v); kotor.item = false; }
   if (aktif('t_bahan') && kotor.bahan) { renderBahanTab(v); kotor.bahan = false; }
@@ -1415,7 +1462,7 @@ const CRUD = {
       { k: 'StokAwal', l: 'Stok Awal (pcs)', t: 'number', h: 'Stok yang ada sekarang, sebelum pembelian dicatat di aplikasi ini. Stok saat ini = stok awal + pembelian − penjualan.' },
       { k: 'HPPAwal', l: 'HPP Awal per pcs (Rp)', t: 'number', h: 'Modal per pcs untuk stok awal. Pembelian berikutnya dihitung rata-rata dengan angka ini. Kalau dikosongkan, stok awal dihargai sama dengan pembelian pertama.' }],
     cari: (r) => r.Nama, urut: (a, b) => String(a.Nama).localeCompare(String(b.Nama), 'id'),
-    baris: (r) => { const s = stokBarang(r.ID); return `<div class="cb"><div class="c1"><span>${esc(r.Nama)}</span><span class="r ${s.stok < 0 ? 'neg' : ''}">${nf(s.stok)} ${esc(r.Satuan || 'pcs')}</span></div><div class="c2">HPP ${s.avg ? n0(Math.round(s.avg)) : '-'}${Number(r.IsiPerDus) ? ' · isi ' + nf(r.IsiPerDus) + ' pcs/dus' : ''}</div></div>`; },
+    baris: (r) => { const s = stokBarang(r.ID), menipis = _menipisBarangIds.has(r.ID); return `<div class="cb"><div class="c1"><span>${menipis ? '⚠ ' : ''}${esc(r.Nama)}</span><span class="r ${s.stok < 0 || menipis ? 'neg' : ''}">${nf(s.stok)} ${esc(r.Satuan || 'pcs')}</span></div><div class="c2">HPP ${s.avg ? n0(Math.round(s.avg)) : '-'}${Number(r.IsiPerDus) ? ' · isi ' + nf(r.IsiPerDus) + ' pcs/dus' : ''}</div></div>`; },
     info: (r) => infoKartuStok(r) },
   pembelian: { sheet: 'Belanja', judul: 'Pembelian', tambah: 'Tambah Pembelian', ubah: 'Ubah Pembelian', tgl: true,
     f: [{ k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' },
@@ -1472,7 +1519,7 @@ const CRUD = {
     f: [{ k: 'Nama', l: 'Nama Bahan', w: 1, h: 'Contoh: M4, Tinta Green, Tinta Black, Tinta Yellow, dst - satu baris per bahan/warna.' },
       { k: 'Satuan', l: 'Satuan', def: 'liter', h: 'Contoh: liter, kg.' }],
     cari: (r) => r.Nama, urut: (a, b) => String(a.Nama).localeCompare(String(b.Nama), 'id'),
-    baris: (r) => { const s = stokBahan(r.ID); return `<div class="cb"><div class="c1"><span>${esc(r.Nama)}</span><span class="r ${s < 0 ? 'neg' : ''}">${nf(s)} ${esc(r.Satuan || '')}</span></div></div>`; } },
+    baris: (r) => { const s = stokBahan(r.ID), menipis = _menipisBahanIds.has(r.ID); return `<div class="cb"><div class="c1"><span>${menipis ? '⚠ ' : ''}${esc(r.Nama)}</span><span class="r ${s < 0 || menipis ? 'neg' : ''}">${nf(s)} ${esc(r.Satuan || '')}</span></div></div>`; } },
   mutasibahan: { sheet: 'MutasiBahan', judul: 'Catat Tambah/Pakai Bahan', tambah: 'Catat Mutasi Bahan', ubah: 'Ubah Mutasi Bahan', tgl: true,
     f: [{ k: 'Nama', l: 'Nama Bahan', t: 'dl', o: 'bhn', w: 1 }, { k: 'StokInfo', t: 'info' },
       { k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' },
