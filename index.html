@@ -528,7 +528,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.44', API_MIN = 15;
+const VERSI = '5.45', API_MIN = 15;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1885,7 +1885,6 @@ function lapSummary(v) {
   out.push(gbox('Laba', grafikKombo(lbl, [{ nama: 'Penjualan', warna: WARNA[3], data: col((a) => a.pj) }, { nama: 'Piutang', warna: WARNA[2], data: col((a) => a.piu) }], { nama: 'Laba', warna: WARNA[1], teks: '#b7950b', data: laba })));
   out.push(gbox('Laba Bersih', grafikKombo(lbl, [{ nama: 'Laba', warna: WARNA[1], data: laba }, { nama: 'Pengeluaran', warna: WARNA[2], data: biaya }], { nama: 'Laba Bersih', warna: WARNA[0], teks: '#1e8449', data: bersih })));
   out.push(gbox('Pembelian', grafikKombo(lbl, [{ nama: 'Pembelian', warna: WARNA[3], data: col((a) => a.beli) }, { nama: 'Hutang', warna: WARNA[2], data: col((a) => a.hutang) }], null)));
-  out.push(gbox('Pengeluaran', grafikKombo(lbl, [{ nama: 'Biaya Operator', warna: WARNA[3], data: col((a) => a.op) }, { nama: 'Bahan Habis Pakai', warna: WARNA[1], data: col((a) => a.bahan) }, { nama: 'Lain-lain', warna: WARNA[2], data: col((a) => a.peng + a.rugi) }], { nama: 'Total Biaya', warna: '#8e44ad', teks: '#6c3483', data: biaya })));
   out.push(gbox('Jumlah Nota', grafikKombo(lbl, [{ nama: 'Jumlah Nota', warna: WARNA[3], data: col((a) => a.nota) }], null)));
   out.push(gbox('Total Qty (pcs)', grafikKombo(lbl, [{ nama: 'Total Qty (pcs)', warna: WARNA[1], data: col((a) => a.qty) }], null)));
   const h = hariIni(), akhir = akhirBulan(bln + '-01'), tgl = akhir < h ? akhir : h, kas = aliranKas(v);
