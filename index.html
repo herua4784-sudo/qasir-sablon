@@ -528,7 +528,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.45', API_MIN = 15;
+const VERSI = '5.46', API_MIN = 15;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -890,7 +890,7 @@ function renderNota(v) {
   $('n_sub').textContent = subJudul();
   $('n_list').innerHTML = notaHasil.length ? notaHasil.slice(0, notaTampil).map(rowNota).join('') + (notaTampil < notaHasil.length ? htmlLagi() : '') : '<div class="kosong">Belum ada nota. Ketuk + untuk membuat nota baru.</div>';
   if (aksiId) { const r = document.querySelector(`.nrow[data-id="${aksiId}"]`); if (r) r.classList.add('terpilih'); else tutupAksi(); }
-  $('n_ringkas').textContent = `Total ${n0(jml(notaHasil, (o) => o.Total))} dari ${notaHasil.length} nota. Sisa ${n0(jml(notaHasil, (o) => Math.max(o.Total - o.Dibayar, 0)))}.`;
+  $('n_ringkas').textContent = `Total ${n0(jml(notaHasil, (o) => o.Total))} dari ${notaHasil.length} nota. Sisa ${n0(jml(notaHasil, (o) => Math.max(o.Total - o.Dibayar, 0)))}. Total Qty ${nf(jml(notaHasil, (o) => pcsGelas(o.Items)))} pcs.`;
 }
 function muatLagiNota() {
   if (notaTampil >= notaHasil.length) return;
