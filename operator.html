@@ -66,6 +66,11 @@
   .form button.simpan:disabled { opacity: .5; }
   .form .err { color: #d32f2f; font-size: 13.5px; margin-top: 10px; min-height: 18px; }
   .toast.on { opacity: 1; }
+  .sumsel { display: flex; gap: 10px; padding: 14px 16px 6px; }
+  .sumsel select { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; font-family: inherit; background: #fff; }
+  .sumrow { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 16px; border-bottom: 1px solid #e2e2e2; }
+  .sumrow .l { font-size: 15.5px; color: #333; }
+  .sumrow .v { font-size: 19px; font-weight: 700; color: #111; }
 </style>
 </head>
 <body>
@@ -101,6 +106,10 @@
       <button class="tb" data-t="bahan" onclick="pindahTab('bahan')">
         <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-1-5V3.5L19.5 9H15z"/></svg>
         <span>Bahan</span>
+      </button>
+      <button class="tb" data-t="summary" onclick="pindahTab('summary')">
+        <svg viewBox="0 0 24 24"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg>
+        <span>Summary</span>
       </button>
     </div>
   </div>
@@ -148,6 +157,11 @@
 <script>
 const K_CFG = 'qsg_op_cfg', K_DATA = 'qsg_op_data', K_QUEUE = 'qsg_op_queue';
 let CFG = null, DATA = { pesanan: [], stok: [], bahan: [] }, QUEUE = [], TAB = 'pesanan', WAKTU = null, sedangFlush = false;
+const BLN_OP = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+let SUM_BLN = new Date().getMonth() + 1, SUM_THN = new Date().getFullYear();
+const PCS_PER_OP = { pcs: 1, gelas: 1, lusin: 12, kodi: 20 };
+const pcsOp = (it) => (Number(it.jumlah) || 0) * (PCS_PER_OP[String(it.satuan || 'pcs').trim().toLowerCase()] || 1);
+const BUKAN_GELAS_OP = /lid|tutup/i;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nf = (x) => new Intl.NumberFormat('id-ID').format(Number(x) || 0);
@@ -225,10 +239,13 @@ async function segarkan(manual) {
 }
 function pindahTab(t) {
   TAB = t; document.querySelectorAll('.tabs .tb').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
-  $('judul').textContent = t === 'pesanan' ? 'Pesanan' : t === 'stok' ? 'Stok Gelas' : 'Stok Bahan (M4/Tinta)';
+  $('judul').textContent = t === 'pesanan' ? 'Pesanan' : t === 'stok' ? 'Stok Gelas' : t === 'bahan' ? 'Stok Bahan (M4/Tinta)' : 'Summary';
+  $('cari').style.display = t === 'summary' ? 'none' : '';
   $('cari').placeholder = t === 'pesanan' ? 'Cari nama pemesan atau item' : t === 'stok' ? 'Cari nama item' : 'Cari nama bahan';
   $('cari').value = ''; render();
 }
+function setSumBulan(v) { SUM_BLN = Number(v); render(); }
+function setSumTahun(v) { SUM_THN = Number(v); render(); }
 function render() {
   const q = $('cari').value.trim().toLowerCase();
   if (TAB === 'pesanan') {
@@ -240,12 +257,29 @@ function render() {
     const hint = '<div class="hint">Ketuk nama item untuk mencatat penyesuaian stok (rusak/hilang/koreksi).</div>';
     $('isi').innerHTML = arr.length ? hint + arr.map((s) => { const n = QUEUE.filter((x) => x.kind !== 'bhn' && x.barangId === s.id).length; return `<div class="crow" onclick="bukaPeny('${s.id}')"><div class="cb"><div class="c1"><span>${esc(s.nama)}${n ? ` <small style="color:#b45309;font-weight:600">(${n} menunggu kirim)</small>` : ''}</span><span class="r${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div></div><svg class="chev" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>`; }).join('')
       : `<div class="kosong">${q ? 'Tidak ada item yang cocok.' : 'Belum ada item.'}</div>`;
-  } else {
+  } else if (TAB === 'bahan') {
     const arr = (DATA.bahan || []).filter((s) => !q || s.nama.toLowerCase().indexOf(q) >= 0);
     const hint = '<div class="hint">Ketuk nama bahan untuk mencatat pemakaian (ambil dari gudang).</div>';
     $('isi').innerHTML = arr.length ? hint + arr.map((s) => { const n = QUEUE.filter((x) => x.kind === 'bhn' && x.bahanId === s.id).length; return `<div class="crow" onclick="bukaBhn('${s.id}')"><div class="cb"><div class="c1"><span>${esc(s.nama)}${n ? ` <small style="color:#b45309;font-weight:600">(${n} menunggu kirim)</small>` : ''}</span><span class="r${s.stok < 0 ? ' min' : ''}">${nf(s.stok)} ${esc(s.satuan)}</span></div></div><svg class="chev" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>`; }).join('')
       : `<div class="kosong">${q ? 'Tidak ada bahan yang cocok.' : 'Belum ada bahan terdaftar.'}</div>`;
+  } else {
+    renderSummary();
   }
+}
+function renderSummary() {
+  const thnAda = new Set(DATA.pesanan.map((o) => +String(o.tanggal).slice(0, 4)).filter(Boolean));
+  thnAda.add(new Date().getFullYear());
+  const thnList = Array.from(thnAda).sort((a, b) => a - b);
+  const bulanOpt = BLN_OP.map((n, i) => `<option value="${i + 1}"${i + 1 === SUM_BLN ? ' selected' : ''}>${n}</option>`).join('');
+  const thnOpt = thnList.map((y) => `<option value="${y}"${y === SUM_THN ? ' selected' : ''}>${y}</option>`).join('');
+  const bln7 = String(SUM_BLN).padStart(2, '0'), target = SUM_THN + '-' + bln7;
+  const arr = DATA.pesanan.filter((o) => String(o.tanggal).slice(0, 7) === target);
+  let qty = 0, biaya = 0;
+  arr.forEach((o) => o.items.forEach((i) => { if (!BUKAN_GELAS_OP.test(i.nama || '')) qty += pcsOp(i); biaya += Number(i.biayaOperator) || 0; }));
+  $('isi').innerHTML = `<div class="sumsel"><select onchange="setSumBulan(this.value)">${bulanOpt}</select><select onchange="setSumTahun(this.value)">${thnOpt}</select></div>`
+    + `<div class="sumrow"><span class="l">Jumlah Nota</span><span class="v">${nf(arr.length)}</span></div>`
+    + `<div class="sumrow"><span class="l">Total Qty (pcs)</span><span class="v">${nf(qty)}</span></div>`
+    + `<div class="sumrow"><span class="l">Biaya Operator Mesin</span><span class="v">${nf(biaya)}</span></div>`;
 }
 $('cari').addEventListener('input', () => { let t; clearTimeout(render._t); render._t = setTimeout(render, 120); });
 
