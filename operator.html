@@ -158,7 +158,7 @@
 const K_CFG = 'qsg_op_cfg', K_DATA = 'qsg_op_data', K_QUEUE = 'qsg_op_queue';
 let CFG = null, DATA = { pesanan: [], stok: [], bahan: [] }, QUEUE = [], TAB = 'pesanan', WAKTU = null, sedangFlush = false;
 const BLN_OP = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-let SUM_BLN = new Date().getMonth() + 1, SUM_THN = new Date().getFullYear();
+let SUM_BLN = new Date().getMonth() + 1, SUM_THN = new Date().getFullYear(), FIL_BLN = '';
 const PCS_PER_OP = { pcs: 1, gelas: 1, lusin: 12, kodi: 20 };
 const pcsOp = (it) => (Number(it.jumlah) || 0) * (PCS_PER_OP[String(it.satuan || 'pcs').trim().toLowerCase()] || 1);
 const BUKAN_GELAS_OP = /lid|tutup/i;
@@ -246,12 +246,16 @@ function pindahTab(t) {
 }
 function setSumBulan(v) { SUM_BLN = Number(v); render(); }
 function setSumTahun(v) { SUM_THN = Number(v); render(); }
+function setFilBulan(v) { FIL_BLN = v; render(); }
 function render() {
   const q = $('cari').value.trim().toLowerCase();
   if (TAB === 'pesanan') {
-    const arr = DATA.pesanan.filter((o) => !q || (o.pelanggan + ' ' + o.items.map((i) => i.nama + ' ' + (i.catatan || '')).join(' ')).toLowerCase().indexOf(q) >= 0);
-    $('isi').innerHTML = arr.length ? arr.map((o) => `<div class="nrow"><div class="av">${esc(ini(o.pelanggan))}</div><div class="nb"><div class="l1"><span class="nm">${esc(o.pelanggan || 'CASH')}</span></div><div class="l2">${tglDMY(o.tanggal)}${o.jam ? ' ' + esc(o.jam) : ''}</div><div class="items">${o.items.map((i) => `<div class="irow"><span>${esc(i.nama)}</span><span class="q">${nf(i.jumlah)} ${esc(i.satuan)}</span></div>${i.catatan ? `<div class="cat">📝 ${esc(i.catatan)}</div>` : ''}`).join('')}</div></div></div>`).join('')
-      : `<div class="kosong">${q ? 'Tidak ada pesanan yang cocok.' : 'Belum ada pesanan.'}</div>`;
+    const blnAda = Array.from(new Set(DATA.pesanan.map((o) => String(o.tanggal).slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)))).sort().reverse();
+    const filOpt = '<option value="">Semua Bulan</option>' + blnAda.map((m) => `<option value="${m}"${m === FIL_BLN ? ' selected' : ''}>${BLN_OP[+m.slice(5) - 1]} ${m.slice(0, 4)}</option>`).join('');
+    const filter = blnAda.length ? `<div class="sumsel"><select onchange="setFilBulan(this.value)">${filOpt}</select></div>` : '';
+    const arr = DATA.pesanan.filter((o) => (!FIL_BLN || String(o.tanggal).slice(0, 7) === FIL_BLN) && (!q || (o.pelanggan + ' ' + o.items.map((i) => i.nama + ' ' + (i.catatan || '')).join(' ')).toLowerCase().indexOf(q) >= 0));
+    $('isi').innerHTML = filter + (arr.length ? arr.map((o) => `<div class="nrow"><div class="av">${esc(ini(o.pelanggan))}</div><div class="nb"><div class="l1"><span class="nm">${esc(o.pelanggan || 'CASH')}</span></div><div class="l2">${tglDMY(o.tanggal)}${o.jam ? ' ' + esc(o.jam) : ''}</div><div class="items">${o.items.map((i) => `<div class="irow"><span>${esc(i.nama)}</span><span class="q">${nf(i.jumlah)} ${esc(i.satuan)}</span></div>${i.catatan ? `<div class="cat">📝 ${esc(i.catatan)}</div>` : ''}`).join('')}</div></div></div>`).join('')
+      : `<div class="kosong">${q || FIL_BLN ? 'Tidak ada pesanan yang cocok.' : 'Belum ada pesanan.'}</div>`);
   } else if (TAB === 'stok') {
     const arr = DATA.stok.filter((s) => !q || s.nama.toLowerCase().indexOf(q) >= 0);
     const hint = '<div class="hint">Ketuk nama item untuk mencatat penyesuaian stok (rusak/hilang/koreksi).</div>';
