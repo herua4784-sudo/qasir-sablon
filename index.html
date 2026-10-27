@@ -103,8 +103,14 @@
   .tag.paket { background:#ece7f7; color:#5b3fa0; } .tag.jasa { background:#d8eef3; color:#0b7893; }
   .bawah { flex:none; background:#000; color:#fff; display:flex; justify-content:space-between; align-items:center; padding:10px 16px; }
   .bawah .kn { font-size:15px; line-height:1.35; }
-  .bawah .kr { font-size:14px; letter-spacing:.3px; }
+  .bawah .kr { font-size:14px; letter-spacing:.3px; display:flex; align-items:center; gap:2px; }
   .bawah .kr b { font-size:26px; font-weight:500; margin-left:8px; letter-spacing:0; }
+  .bawah .kr .tbtn { width:32px; height:32px; color:#fff; flex:none; }
+  .bawah .kr .tbtn svg { width:22px; height:22px; }
+  .bawah .kr .trow { font-size:12px; line-height:1.55; opacity:.8; text-align:right; }
+  .bawah .kr .trow b { font-size:12px; font-weight:600; margin-left:6px; opacity:1; letter-spacing:0; }
+  .bawah .kr .trow.total { font-size:14px; opacity:1; margin-top:1px; }
+  .bawah .kr .trow.total b { font-size:26px; font-weight:500; margin-left:8px; }
 
   /* ---- isian ---- */
   .fl { margin:18px 16px 0; position:relative; }
@@ -409,7 +415,7 @@
       <div id="e_items"></div>
     </div>
     <button class="fab" data-a="itemBaru" aria-label="Tambah item" style="bottom:88px"><i data-ic="add"></i></button>
-    <div class="bawah"><div class="kn"><div>Item &nbsp; <b id="e_n">0</b></div><div>Qty &nbsp; <b id="e_q">0</b></div></div><div class="kr">SUBTOTAL <b id="e_sub">0</b></div></div>
+    <div class="bawah"><div class="kn"><div>Item &nbsp; <b id="e_n">0</b></div><div>Qty &nbsp; <b id="e_q">0</b></div></div><div class="kr"><button class="bi tbtn" data-a="tambahan" aria-label="Tambahan (Diskon/Pajak/Ongkos Kirim/Lain-lain)"><i data-ic="add"></i></button><div id="e_totwrap"><div class="trow total">SUBTOTAL <b id="e_sub">0</b></div></div></div></div>
   </div>
 
   <!-- ================= LAYAR: KEPADA YTH ================= -->
@@ -511,6 +517,27 @@
   <div class="baris-tombol"><button class="bt putih" id="r_hapus" data-a="hapusNotaDlg">Hapus Nota</button><button class="bt" data-a="rincianOK">OK</button></div>
 </div></dialog>
 
+<dialog id="dlgTambahan"><div class="dl">
+  <h2>Tambahan</h2>
+  <div class="cek"><input type="checkbox" id="t_diskonOn" onchange="toggleTambahanBlok('t_diskonBlok', this.checked)"><label for="t_diskonOn">Diskon</label></div>
+  <div class="fl" id="t_diskonBlok" style="display:none"><label for="t_diskon">Diskon (% atau Rp)</label><input id="t_diskon" autocomplete="off" placeholder="mis. 10% atau 50000"></div>
+  <div class="cek"><input type="checkbox" id="t_pajakOn" onchange="toggleTambahanBlok('t_pajakBlok', this.checked)"><label for="t_pajakOn">Pajak</label></div>
+  <div class="fl dua" id="t_pajakBlok" style="display:none">
+    <div><label for="t_pajak">Pajak (%)</label><input id="t_pajak" inputmode="decimal" placeholder="mis. 10"></div>
+    <div class="cek" style="margin:28px 0 0"><input type="checkbox" id="t_pajakInc"><label for="t_pajakInc">Termasuk harga</label></div>
+  </div>
+  <div class="cek"><input type="checkbox" id="t_pajak2On" onchange="toggleTambahanBlok('t_pajak2Blok', this.checked)"><label for="t_pajak2On">Pajak #2</label></div>
+  <div class="fl" id="t_pajak2Blok" style="display:none"><label for="t_pajak2">Pajak #2 (%)</label><input id="t_pajak2" inputmode="decimal" placeholder="mis. 5"></div>
+  <div class="cek"><input type="checkbox" id="t_ongkirOn" onchange="toggleTambahanBlok('t_ongkirBlok', this.checked)"><label for="t_ongkirOn">Ongkos Kirim</label></div>
+  <div class="fl" id="t_ongkirBlok" style="display:none"><label for="t_ongkir">Ongkos Kirim (Rp)</label><input id="t_ongkir" type="text" inputmode="numeric"></div>
+  <div class="cek"><input type="checkbox" id="t_lainOn" onchange="toggleTambahanBlok('t_lainBlok', this.checked)"><label for="t_lainOn">Lain-lain</label></div>
+  <div class="fl dua" id="t_lainBlok" style="display:none">
+    <div><label for="t_lainLabel">Label</label><input id="t_lainLabel" autocomplete="off" placeholder="mis. Biaya Admin"></div>
+    <div><label for="t_lainRp">Jumlah (Rp)</label><input id="t_lainRp" type="text" inputmode="numeric"></div>
+  </div>
+  <div class="baris-tombol"><button class="bt putih" data-a="tutupDlg">Batal</button><button class="bt" data-a="tambahanOK">Simpan</button></div>
+</div></dialog>
+
 <dialog id="dlgPilih"><div class="dl">
   <h2 id="pl_judul">Pilih</h2>
   <div class="cari" style="padding:0"><input id="pl_cari" type="search" placeholder="Cari" autocomplete="off"></div>
@@ -528,7 +555,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.49', API_MIN = 15;
+const VERSI = '5.50', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -575,6 +602,32 @@ const diskonRp = (bruto, teks) => {           // harus sama dengan hitungan di A
   return Math.max(0, Math.min(bruto, d));
 };
 const subItem = (it) => { const b = (Number(it.Jumlah) || 0) * (Number(it.Harga) || 0); return Math.round(b - diskonRp(b, it.Diskon)); };
+const tambahanKosong = () => ({ diskon: '', pajak: '', pajakInc: false, pajak2: '', ongkir: 0, lainLabel: '', lainRp: 0 });
+// Tambahan nota: Diskon/Pajak/Pajak #2/Ongkos Kirim/Lain-lain di level nota (beda dgn Diskon per-item di atas).
+// Harus sama hitungannya dengan hitungTotalPesanan_ di Apps Script.
+function hitungTambahan(subtotal, t) {
+  t = t || {};
+  const dRp = diskonRp(subtotal, t.diskon), setelahDiskon = subtotal - dRp;
+  const pajakPersen = parseFloat(String(t.pajak == null ? '' : t.pajak).replace(',', '.')) || 0, pajakInc = !!t.pajakInc;
+  const pajakRp = pajakPersen > 0 ? Math.round(pajakInc ? (setelahDiskon - setelahDiskon / (1 + pajakPersen / 100)) : (setelahDiskon * pajakPersen / 100)) : 0;
+  const pajak2Persen = parseFloat(String(t.pajak2 == null ? '' : t.pajak2).replace(',', '.')) || 0;
+  const pajak2Rp = pajak2Persen > 0 ? Math.round(setelahDiskon * pajak2Persen / 100) : 0;
+  const ongkirRp = Math.max(0, Number(t.ongkir) || 0);
+  const lainRp = Number(t.lainRp) || 0, lainLabel = t.lainLabel || 'Lain-lain';
+  const total = Math.round(setelahDiskon + (pajakInc ? 0 : pajakRp) + pajak2Rp + ongkirRp + lainRp);
+  const ada = dRp > 0 || pajakPersen > 0 || pajak2Persen > 0 || ongkirRp > 0 || lainRp !== 0;
+  return { subtotal, dRp, setelahDiskon, pajakPersen, pajakInc, pajakRp, pajak2Persen, pajak2Rp, ongkirRp, lainLabel, lainRp, total, ada };
+}
+// Baris2 ringkasan SUBTOTAL -> penyesuaian (dipakai di footer editor & nota cetak; TOTAL digambar terpisah oleh pemanggil).
+function barisTambahan(h) {
+  const out = [{ lbl: 'SUBTOTAL', teks: n0(h.subtotal) }];
+  if (h.dRp > 0) out.push({ lbl: 'DISKON', teks: '-' + n0(h.dRp) });
+  if (h.pajakPersen > 0) out.push({ lbl: `PAJAK ${h.pajakPersen}%`, teks: h.pajakInc ? 'termasuk' : '+' + n0(h.pajakRp) });
+  if (h.pajak2Persen > 0) out.push({ lbl: `PAJAK 2 ${h.pajak2Persen}%`, teks: '+' + n0(h.pajak2Rp) });
+  if (h.ongkirRp > 0) out.push({ lbl: 'ONGKOS KIRIM', teks: '+' + n0(h.ongkirRp) });
+  if (h.lainRp !== 0) out.push({ lbl: String(h.lainLabel || 'Lain-lain').toUpperCase(), teks: (h.lainRp < 0 ? '-' : '+') + n0(Math.abs(h.lainRp)) });
+  return out;
+}
 const ini = (nama) => { const t = String(nama || '').trim(); if (!t) return '?'; const a = t.slice(0, 2); return a.charAt(1) === ' ' ? a.charAt(0) : a; };
 const tagKat = (k) => (k === KAT_JASA ? '<span class="tag jasa">Jasa saja</span>' : '<span class="tag paket">All-In</span>');
 const nomorWA = (hp) => { let d = String(hp || '').replace(/\D/g, ''); if (!d) return ''; if (d.charAt(0) === '0') d = '62' + d.slice(1); else if (d.charAt(0) === '8') d = '62' + d; return d; };
@@ -695,6 +748,10 @@ function tampilan() {
   L.Pesanan.forEach((o) => {
     ['Jumlah', 'Total', 'BiayaOperator', 'Dibayar'].forEach((k) => { o[k] = Number(o[k]) || 0; });
     o.NoHP = String(o.NoHP || ''); o.Terkirim = o.Terkirim === '1' || o.Terkirim === 1 || o.Terkirim === true; o.Jam = /^\d{1,2}:\d{2}/.test(String(o.Jam || '')) ? String(o.Jam).slice(0, 5) : '';
+    // Tambahan nota (Diskon/Pajak/Pajak #2/Ongkos Kirim/Lain-lain) - lihat hitungTambahan().
+    o.TDiskon = o.TDiskon == null ? '' : String(o.TDiskon); o.TPajak = o.TPajak == null ? '' : String(o.TPajak);
+    o.TPajakInc = o.TPajakInc === '1' || o.TPajakInc === 1 || o.TPajakInc === true; o.TPajak2 = o.TPajak2 == null ? '' : String(o.TPajak2);
+    o.TOngkir = Number(o.TOngkir) || 0; o.TLainLabel = o.TLainLabel || ''; o.TLainRp = Number(o.TLainRp) || 0;
     o._k = o.Tanggal + ' ' + o.Jam + ' ' + o.ID;      // kunci urut (terbaru di atas), dihitung sekali
     const its = (items[o.ID] || []).sort((a, b) => (Number(a.Urut) || 0) - (Number(b.Urut) || 0))
       .map((it) => ({ ...it, Kategori: normKat(it.Kategori), Jumlah: Number(it.Jumlah) || 0, Harga: Number(it.Harga) || 0, Subtotal: Number(it.Subtotal) || 0, Diskon: it.Diskon == null ? '' : String(it.Diskon) }));
@@ -1049,7 +1106,7 @@ const totalOperator = (items) => items.reduce((a, it) => a + (Number(it.BiayaOpe
 const opTerakhir = () => { try { const v = localStorage.getItem(K_OP); return v === null ? 50 : (Number(v) || 0); } catch (e) { return 50; } };
 
 function notaBaru() {
-  E = { id: null, tgl: hariIni(), jam: jamSkrg(), inv: null, nama: 'CASH', alamat: '', hp: '', memo: '', simpanPel: true, items: [], dirty: false };
+  E = { id: null, tgl: hariIni(), jam: jamSkrg(), inv: null, nama: 'CASH', alamat: '', hp: '', memo: '', simpanPel: true, items: [], dirty: false, tambahan: tambahanKosong() };
   E.inv = invAcak();
   itemSelMode = false; itemSelSet.clear();
   tampilEditor(); bukaLayar('l_editor');
@@ -1057,7 +1114,8 @@ function notaBaru() {
 function notaEdit(id) {
   const o = notaDari(id); if (!o) return;
   const items = o.Items.map((i) => ({ ...i, ID: i.ID || uid() }));
-  E = { id, tgl: o.Tanggal, jam: o.Jam, inv: o.NoInvoice, nama: o.Pelanggan, alamat: o.Alamat || '', hp: o.NoHP, memo: o.Catatan || '', simpanPel: false, items, dirty: false };
+  E = { id, tgl: o.Tanggal, jam: o.Jam, inv: o.NoInvoice, nama: o.Pelanggan, alamat: o.Alamat || '', hp: o.NoHP, memo: o.Catatan || '', simpanPel: false, items, dirty: false,
+    tambahan: { diskon: o.TDiskon || '', pajak: o.TPajak || '', pajakInc: !!o.TPajakInc, pajak2: o.TPajak2 || '', ongkir: o.TOngkir || 0, lainLabel: o.TLainLabel || '', lainRp: o.TLainRp || 0 } };
   itemSelMode = false; itemSelSet.clear();
   tampilEditor(); bukaLayar('l_editor');
 }
@@ -1073,7 +1131,11 @@ function tampilEditor() {
       <div class="i2"><span>${nf(it.Jumlah)} ${esc(it.Satuan)} &nbsp;x ${n0(it.Harga)}</span><span class="r">${n0(subItem(it))}</span></div>
       <div class="i3">${tagKat(it.Kategori)}${it.Warna ? 'Warna ' + esc(it.Warna) + ' · ' : ''}${it.Diskon ? 'Diskon ' + esc(it.Diskon) + ' · ' : ''}Operator ${n0(it.BiayaOperator)}${it.Catatan ? ' · ' + esc(it.Catatan) : ''}</div></div>`).join('')
     : '<div class="kosong">Ketuk + untuk menambah item.</div>';
-  $('e_n').textContent = E.items.length; $('e_q').textContent = nf(pcsTotal(E.items)); $('e_sub').textContent = n0(totalItems(E.items));
+  $('e_n').textContent = E.items.length; $('e_q').textContent = nf(pcsTotal(E.items));
+  const subtotalE = totalItems(E.items), hE = hitungTambahan(subtotalE, E.tambahan);
+  $('e_totwrap').innerHTML = hE.ada
+    ? barisTambahan(hE).map((r) => `<div class="trow">${esc(r.lbl)} <b>${esc(r.teks)}</b></div>`).join('') + `<div class="trow total">TOTAL <b id="e_sub">${n0(hE.total)}</b></div>`
+    : `<div class="trow total">SUBTOTAL <b id="e_sub">${n0(subtotalE)}</b></div>`;
 }
 // Kembali dari editor: TIDAK ada lagi konfirmasi "Buang perubahan nota ini?" - data otomatis disimpan sebagai draft (aman),
 // persis seperti menekan Simpan, hanya saja tidak berpindah ke Preview.
@@ -1125,6 +1187,32 @@ function bukaRincian() {
 function okRincian() {
   E.tgl = $('r_tgl').value || E.tgl; E.jam = $('r_jam').value || E.jam;
   E.dirty = true; $('dlgRincian').close(); tampilEditor();
+}
+
+// Tambahan nota (Diskon/Pajak/Pajak #2/Ongkos Kirim/Lain-lain)
+function toggleTambahanBlok(id, on) { $(id).style.display = on ? '' : 'none'; }
+function bukaTambahan() {
+  const t = E.tambahan || (E.tambahan = tambahanKosong());
+  $('t_diskonOn').checked = !!String(t.diskon || '').trim(); $('t_diskon').value = t.diskon || '';
+  $('t_pajakOn').checked = (parseFloat(t.pajak) || 0) > 0; $('t_pajak').value = t.pajak || ''; $('t_pajakInc').checked = !!t.pajakInc;
+  $('t_pajak2On').checked = (parseFloat(t.pajak2) || 0) > 0; $('t_pajak2').value = t.pajak2 || '';
+  $('t_ongkirOn').checked = (Number(t.ongkir) || 0) > 0; $('t_ongkir').value = t.ongkir ? formatRibuan(String(t.ongkir)) : '';
+  $('t_lainOn').checked = (Number(t.lainRp) || 0) !== 0; $('t_lainLabel').value = t.lainLabel || ''; $('t_lainRp').value = t.lainRp ? formatRibuan(String(Math.abs(t.lainRp))) : '';
+  [['t_diskonOn', 't_diskonBlok'], ['t_pajakOn', 't_pajakBlok'], ['t_pajak2On', 't_pajak2Blok'], ['t_ongkirOn', 't_ongkirBlok'], ['t_lainOn', 't_lainBlok']]
+    .forEach(([onId, blokId]) => toggleTambahanBlok(blokId, $(onId).checked));
+  $('dlgTambahan').showModal();
+}
+function okTambahan() {
+  E.tambahan = {
+    diskon: $('t_diskonOn').checked ? $('t_diskon').value.trim() : '',
+    pajak: $('t_pajakOn').checked ? ($('t_pajak').value.trim() || '') : '',
+    pajakInc: $('t_pajakOn').checked && $('t_pajakInc').checked,
+    pajak2: $('t_pajak2On').checked ? ($('t_pajak2').value.trim() || '') : '',
+    ongkir: $('t_ongkirOn').checked ? (Number(angkaBersih($('t_ongkir').value)) || 0) : 0,
+    lainLabel: $('t_lainOn').checked ? ($('t_lainLabel').value.trim() || 'Lain-lain') : '',
+    lainRp: $('t_lainOn').checked ? (Number(angkaBersih($('t_lainRp').value)) || 0) : 0
+  };
+  E.dirty = true; $('dlgTambahan').close(); tampilEditor();
 }
 
 // Item nota
@@ -1219,8 +1307,11 @@ function simpanNotaInti() {
   const kurangStok = cekStok(its);
   if (kurangStok.length && !confirm('Stok tidak cukup:\n' + kurangStok.join('\n') + '\n\nTetap simpan nota ini?')) return { ok: false };
   const kat = Array.from(new Set(its.map((i) => i.Kategori)));
+  const hT = hitungTambahan(totalItems(its), E.tambahan);
   const base = { Tanggal: E.tgl, Jam: E.jam, Pelanggan: nama, Alamat: E.alamat, NoHP: E.hp, Jenis: kat.length === 1 ? kat[0] : 'Campuran',
-    Deskripsi: its.map((i) => `${i.Deskripsi} (${nf(i.Jumlah)} ${i.Satuan})`).join(', '), Jumlah: pcsTotal(its), Total: totalItems(its), BiayaOperator: totalOperator(its), Catatan: E.memo.trim() };
+    Deskripsi: its.map((i) => `${i.Deskripsi} (${nf(i.Jumlah)} ${i.Satuan})`).join(', '), Jumlah: pcsTotal(its), Total: hT.total, BiayaOperator: totalOperator(its), Catatan: E.memo.trim(),
+    TDiskon: (E.tambahan && E.tambahan.diskon) || '', TPajak: (E.tambahan && E.tambahan.pajak) || '', TPajakInc: (E.tambahan && E.tambahan.pajakInc) ? '1' : '',
+    TPajak2: (E.tambahan && E.tambahan.pajak2) || '', TOngkir: (E.tambahan && E.tambahan.ongkir) || 0, TLainLabel: (E.tambahan && E.tambahan.lainLabel) || '', TLainRp: (E.tambahan && E.tambahan.lainRp) || 0 };
   if (E.simpanPel && nama.toUpperCase() !== 'CASH') {
     const p = lihat().Pelanggan.find((x) => String(x.Nama).trim().toLowerCase() === nama.toLowerCase());
     if (!p) antre({ op: 'add', sheet: 'Pelanggan', row: { ID: uid(), Nama: nama, Alamat: E.alamat, NoHP: E.hp } });
@@ -1301,6 +1392,11 @@ function gambarNota(o) {
       if (ket) kiri(ket, 13, false, 16, true);
     });
     garis();
+    const hT = hitungTambahan(totalItems(o.Items), { diskon: o.TDiskon, pajak: o.TPajak, pajakInc: o.TPajakInc, pajak2: o.TPajak2, ongkir: o.TOngkir, lainLabel: o.TLainLabel, lainRp: o.TLainRp });
+    if (hT.ada) {
+      barisTambahan(hT).forEach((r) => { set(14); c.textAlign = 'right'; c.fillStyle = '#555'; c.fillText(`${r.lbl}   ${r.teks}`, W - PAD, y); c.fillStyle = '#000'; y += 20; });
+      y += 2;
+    }
     const sisa = Math.max(o.Total - o.Dibayar, 0);
     const teksQty = 'Total Qty: ' + nf(qty), ukTotal = 16;    // disamakan dengan ukuran baris item (16), untuk kertas 58 mm maupun 80 mm
     // Tulisan TOTAL/BAYAR/SISA dirapatkan ke angkanya: jarak ke angka hanya 12 px, sejajar satu kolom.
@@ -1430,7 +1526,8 @@ async function hapusNota(id) {
 function salinNota(id) {
   const o = notaDari(id); if (!o) return;
   const items = o.Items.map((i) => ({ ...i, ID: uid() }));
-  E = { id: null, tgl: hariIni(), jam: jamSkrg(), inv: invAcak(), nama: o.Pelanggan, alamat: o.Alamat || '', hp: o.NoHP, memo: o.Catatan || '', simpanPel: false, items, dirty: true };
+  E = { id: null, tgl: hariIni(), jam: jamSkrg(), inv: invAcak(), nama: o.Pelanggan, alamat: o.Alamat || '', hp: o.NoHP, memo: o.Catatan || '', simpanPel: false, items, dirty: true,
+    tambahan: { diskon: o.TDiskon || '', pajak: o.TPajak || '', pajakInc: !!o.TPajakInc, pajak2: o.TPajak2 || '', ongkir: o.TOngkir || 0, lainLabel: o.TLainLabel || '', lainRp: o.TLainRp || 0 } };
   tampilEditor(); bukaLayar('l_editor'); pesan('Nota disalin. Periksa lalu simpan.', 3500);
 }
 
@@ -2190,6 +2287,7 @@ const ACT = {
   editorBack: () => editorBack(),
   kepada: () => bukaKepada(), kepadaOK: () => okKepada(), pilihPel: () => bukaPilih('pelanggan'),
   rincian: () => bukaRincian(), rincianOK: () => okRincian(),
+  tambahan: () => bukaTambahan(), tambahanOK: () => okTambahan(),
   hapusNotaDlg: async () => { const id = E && E.id; if (id && await hapusNota(id)) { $('dlgRincian').close(); E = null; tutupLayar(); } },
   simpanNota: () => simpanNota(),
   itemBaru: () => itemBaru(), itemEdit: (el) => { const i = Number(el.dataset.i); if (itemSelMode) toggleItemSel(E.items[i] && E.items[i].ID); else itemEdit(i); }, itemOK: () => okItem(), itemHapus: () => hapusItem(), pilihBrg: () => bukaPilih('barang'),
@@ -2305,7 +2403,7 @@ if (window.matchMedia && matchMedia('(pointer: coarse)').matches) {
 const tunda = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 $('n_cari').addEventListener('input', tunda(() => { notaTampil = 0; renderNota(lihat()); }, 150));
 $('dk_baru').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tambahKatBaru(); } });
-['u_saldo', 'it_harga', 'it_jml', 'it_op', 'b_jml', 'bb_jml'].forEach((id) => pasangRibuan($(id)));
+['u_saldo', 'it_harga', 'it_jml', 'it_op', 'b_jml', 'bb_jml', 't_ongkir', 't_lainRp'].forEach((id) => pasangRibuan($(id)));
 $('ci_cari').addEventListener('input', tunda(() => { $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null); }, 150));
 $('bi_cari').addEventListener('input', tunda(() => { $('bi_list').innerHTML = daftarCrud('bahan', $('bi_cari'), null); }, 150));
 $('cl_cari').addEventListener('input', tunda(renderDaftarList, 150));
