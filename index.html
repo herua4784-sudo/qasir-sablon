@@ -555,7 +555,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.52', API_MIN = 17;
+const VERSI = '5.53', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1394,15 +1394,16 @@ function gambarNota(o) {
     garis();
     const hT = hitungTambahan(totalItems(o.Items), { diskon: o.TDiskon, pajak: o.TPajak, pajakInc: o.TPajakInc, pajak2: o.TPajak2, ongkir: o.TOngkir, lainLabel: o.TLainLabel, lainRp: o.TLainRp });
     const ukTotal = 16;    // disamakan dengan ukuran baris item (16), untuk kertas 58 mm maupun 80 mm
-    // SUBTOTAL/DISKON/dst, TOTAL/BAYAR/SISA semua rata kiri di kolom yang sama (PAD), mengikuti rata kiri SUBTOTAL.
+    // SUBTOTAL/DISKON/dst, Total Qty, TOTAL/BAYAR/SISA semua rata kiri mulai dari kolom yang sama (xRingkas, digeser ke tengah kertas).
+    const xRingkas = Math.round(W / 2);
     if (hT.ada) {
-      barisTambahan(hT).forEach((r) => { set(ukTotal, false); c.textAlign = 'left'; c.fillStyle = '#555'; c.fillText(r.lbl, PAD, y); c.textAlign = 'right'; c.fillText(r.teks, W - PAD, y); c.fillStyle = '#000'; y += Math.round(ukTotal * 1.4); });
+      barisTambahan(hT).forEach((r) => { set(ukTotal, false); c.textAlign = 'left'; c.fillStyle = '#555'; c.fillText(r.lbl, xRingkas, y); c.textAlign = 'right'; c.fillText(r.teks, W - PAD, y); c.fillStyle = '#000'; y += Math.round(ukTotal * 1.4); });
     }
     const sisa = Math.max(o.Total - o.Dibayar, 0);
-    set(15); c.textAlign = 'left'; c.fillText('Total Qty: ' + nf(qty), PAD, y); y += Math.round(15 * 1.4);
-    dua('TOTAL', n0(o.Total), ukTotal, true, PAD);
-    dua('BAYAR', n0(o.Dibayar), ukTotal, false, PAD);
-    dua('SISA', n0(sisa), ukTotal, false, PAD);
+    set(15); c.textAlign = 'left'; c.fillText('Total Qty: ' + nf(qty), xRingkas, y); y += Math.round(15 * 1.4);
+    dua('TOTAL', n0(o.Total), ukTotal, true, xRingkas);
+    dua('BAYAR', n0(o.Dibayar), ukTotal, false, xRingkas);
+    dua('SISA', n0(sisa), ukTotal, false, xRingkas);
     if (o.Catatan) { garis(); kiri('Catatan: ' + o.Catatan, 15); }
     if (cfg.kaki) { y += 6; tengah(cfg.kaki, 15); }
     y += 12;
