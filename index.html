@@ -555,7 +555,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.50', API_MIN = 17;
+const VERSI = '5.51', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1394,7 +1394,7 @@ function gambarNota(o) {
     garis();
     const hT = hitungTambahan(totalItems(o.Items), { diskon: o.TDiskon, pajak: o.TPajak, pajakInc: o.TPajakInc, pajak2: o.TPajak2, ongkir: o.TOngkir, lainLabel: o.TLainLabel, lainRp: o.TLainRp });
     if (hT.ada) {
-      barisTambahan(hT).forEach((r) => { set(14); c.textAlign = 'right'; c.fillStyle = '#555'; c.fillText(`${r.lbl}   ${r.teks}`, W - PAD, y); c.fillStyle = '#000'; y += 20; });
+      barisTambahan(hT).forEach((r) => { set(16); c.textAlign = 'right'; c.fillStyle = '#555'; c.fillText(`${r.lbl}   ${r.teks}`, W - PAD, y); c.fillStyle = '#000'; y += 23; });
       y += 2;
     }
     const sisa = Math.max(o.Total - o.Dibayar, 0);
