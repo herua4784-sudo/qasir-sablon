@@ -316,6 +316,21 @@
     <button class="fab" data-a="crudBaru" data-c="bahan" aria-label="Tambah bahan"><i data-ic="add"></i></button>
   </section>
 
+  <!-- ================= TAB: KALKULATOR HARGA JUAL ================= -->
+  <section class="tab" id="t_kalkulator">
+    <div class="bar putih"><div class="jdl" style="padding-left:16px">Kalkulator Harga Jual</div></div>
+    <div class="isi">
+      <div class="fl"><label for="kal_item">Nama Item</label><input id="kal_item" list="dl_brg" autocomplete="off" placeholder="Pilih / ketik nama item"></div>
+      <div class="info-stok" id="kal_hpp_info"></div>
+      <div class="fl"><label for="kal_operator">Biaya Operator Mesin per pcs (Rp)</label><input id="kal_operator" type="text" inputmode="numeric"></div>
+      <div class="fl dua">
+        <div><label for="kal_margin">Margin</label><input id="kal_margin" inputmode="decimal" autocomplete="off" placeholder="mis. 25"></div>
+        <div><div class="seg" id="kal_seg" style="margin:18px 0 0"><button data-a="kalMarginTipe" data-tp="persen" class="on">%</button><button data-a="kalMarginTipe" data-tp="rp">Rp</button></div></div>
+      </div>
+      <div id="kal_hasil" style="margin-top:18px"></div>
+    </div>
+  </section>
+
   <!-- ================= TAB: LAPORAN ================= -->
   <section class="tab" id="t_laporan">
     <div class="bar putih"><div class="jdl">Laporan</div></div>
@@ -373,6 +388,7 @@
     <button class="on" data-a="tab" data-t="nota"><i data-ic="nota"></i>Nota</button>
     <button data-a="tab" data-t="item"><i data-ic="item"></i>Item<span class="bdg" id="nv_item"></span></button>
     <button data-a="tab" data-t="bahan"><i data-ic="bahan"></i>Bahan<span class="bdg" id="nv_bahan"></span></button>
+    <button data-a="tab" data-t="kalkulator"><i data-ic="kalkulator"></i>Kalkulator</button>
     <button data-a="tab" data-t="laporan"><i data-ic="laporan"></i>Laporan</button>
     <button data-a="tab" data-t="setting"><i data-ic="gear"></i>Setting</button>
   </nav>
@@ -555,7 +571,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.54', API_MIN = 17;
+const VERSI = '5.55', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -636,6 +652,7 @@ const jml = (a, f) => a.reduce((s, x) => s + (Number(f(x)) || 0), 0);
 // ---------- ikon ----------
 const IC = {
   search: '<path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>',
+  kalkulator: '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm0-4H7V7h2v2zm4 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2zm4.5 8H13v-2h4.5v2zm0-4H13v-2h4.5v2zm0-4H13V7h4.5v2z"/>',
   more: '<path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>',
   back: '<path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>',
   add: '<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>',
@@ -901,6 +918,7 @@ function bukaTab(n) {
   document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x.id === 't_' + n));
   document.querySelectorAll('#nav button').forEach((x) => x.classList.toggle('on', x.dataset.t === n));
   if (n === 'setting') isiSetting();
+  if (n === 'kalkulator') isiKalkulator();
   renderTampil();
 }
 function popup(items) {
@@ -1104,6 +1122,38 @@ const pcsTotal = (items) => items.reduce((a, it) => a + pcsItem(it), 0);
 const totalItems = (items) => items.reduce((a, it) => a + subItem(it), 0);
 const totalOperator = (items) => items.reduce((a, it) => a + (Number(it.BiayaOperator) || 0), 0);
 const opTerakhir = () => { try { const v = localStorage.getItem(K_OP); return v === null ? 50 : (Number(v) || 0); } catch (e) { return 50; } };
+
+// ---------- Kalkulator Harga Jual (alat bantu hitung berdiri sendiri, tidak mengubah data apa pun) ----------
+let kalInit = false, kalMarginTipe = 'persen';
+function isiKalkulator() {
+  if (!kalInit) { kalInit = true; $('kal_operator').value = formatRibuan(String(opTerakhir())); }
+  hitungKalkulator();
+}
+function hitungKalkulator() {
+  const nama = $('kal_item').value.trim();
+  const b = nama ? cocokBarang(nama) : null;
+  let hpp = 0;
+  if (b) {
+    hpp = stokBarang(b.ID).avg || 0;
+    $('kal_hpp_info').textContent = hpp ? `HPP (rata-rata tertimbang): Rp ${n0(Math.round(hpp))} per pcs` : 'Item ditemukan, tapi belum ada data HPP (belum pernah dibeli / belum ada stok masuk).';
+    $('kal_hpp_info').classList.toggle('warn', !hpp);
+  } else {
+    $('kal_hpp_info').textContent = nama ? 'Item tidak ditemukan di daftar Item. Pilih dari daftar, atau tambahkan dulu di menu Item.' : '';
+    $('kal_hpp_info').classList.toggle('warn', !!nama);
+  }
+  const opr = Number(angkaBersih($('kal_operator').value)) || 0;
+  const modal = hpp + opr;
+  const marginInput = parseFloat(String($('kal_margin').value || '').replace(',', '.')) || 0;
+  const marginRp = Math.round(kalMarginTipe === 'persen' ? (modal * marginInput / 100) : marginInput);
+  const marginPersenTampil = modal > 0 ? (marginRp / modal * 100) : 0;
+  const jual = modal + marginRp;
+  if (!b && !opr) { $('kal_hasil').innerHTML = '<div class="kosong">Isi Nama Item (atau Biaya Operator) untuk mulai menghitung.</div>'; return; }
+  $('kal_hasil').innerHTML = R('HPP Gelas', n0(Math.round(hpp)))
+    + R('Biaya Operator', n0(opr))
+    + R('Modal per pcs', n0(Math.round(modal)), 'tebal')
+    + R('Margin', n0(marginRp), '', kalMarginTipe === 'rp' ? `≈ ${nf(Math.round(marginPersenTampil * 10) / 10)}% dari modal` : `${nf(marginInput)}% dari modal`)
+    + R('Harga Jual Disarankan / pcs', n0(Math.round(jual)), 'tebal');
+}
 
 function notaBaru() {
   E = { id: null, tgl: hariIni(), jam: jamSkrg(), inv: null, nama: 'CASH', alamat: '', hp: '', memo: '', simpanPel: true, items: [], dirty: false, tambahan: tambahanKosong() };
@@ -2281,6 +2331,7 @@ const ACT = {
   editorBack: () => editorBack(),
   kepada: () => bukaKepada(), kepadaOK: () => okKepada(), pilihPel: () => bukaPilih('pelanggan'),
   rincian: () => bukaRincian(), rincianOK: () => okRincian(),
+  kalMarginTipe: (el) => { kalMarginTipe = el.dataset.tp; document.querySelectorAll('#kal_seg button').forEach((x) => x.classList.toggle('on', x.dataset.tp === kalMarginTipe)); hitungKalkulator(); },
   tambahan: () => bukaTambahan(), tambahanOK: () => okTambahan(),
   hapusNotaDlg: async () => { const id = E && E.id; if (id && await hapusNota(id)) { $('dlgRincian').close(); E = null; tutupLayar(); } },
   simpanNota: () => simpanNota(),
@@ -2397,7 +2448,8 @@ if (window.matchMedia && matchMedia('(pointer: coarse)').matches) {
 const tunda = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 $('n_cari').addEventListener('input', tunda(() => { notaTampil = 0; renderNota(lihat()); }, 150));
 $('dk_baru').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tambahKatBaru(); } });
-['u_saldo', 'it_harga', 'it_jml', 'it_op', 'b_jml', 'bb_jml', 't_ongkir', 't_lainRp'].forEach((id) => pasangRibuan($(id)));
+['u_saldo', 'it_harga', 'it_jml', 'it_op', 'b_jml', 'bb_jml', 't_ongkir', 't_lainRp', 'kal_operator'].forEach((id) => pasangRibuan($(id)));
+['kal_item', 'kal_operator', 'kal_margin'].forEach((id) => $(id).addEventListener('input', hitungKalkulator));
 $('ci_cari').addEventListener('input', tunda(() => { $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null); }, 150));
 $('bi_cari').addEventListener('input', tunda(() => { $('bi_list').innerHTML = daftarCrud('bahan', $('bi_cari'), null); }, 150));
 $('cl_cari').addEventListener('input', tunda(renderDaftarList, 150));
