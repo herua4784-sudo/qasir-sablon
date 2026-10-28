@@ -320,13 +320,16 @@
   <section class="tab" id="t_kalkulator">
     <div class="bar putih"><div class="jdl" style="padding-left:16px">Kalkulator Harga Jual</div></div>
     <div class="isi">
+      <div class="seg" id="kal_modeseg" style="margin:18px 16px 0"><button data-a="kalMode" data-m="jual" class="on">Hitung Harga Jual</button><button data-a="kalMode" data-m="margin">Cek Margin dari Harga Jual Saya</button></div>
       <div class="fl"><label for="kal_item">Nama Item</label><input id="kal_item" list="dl_brg" autocomplete="off" placeholder="Pilih / ketik nama item"></div>
       <div class="info-stok" id="kal_hpp_info"></div>
       <div class="fl"><label for="kal_operator">Biaya Operator Mesin per pcs (Rp)</label><input id="kal_operator" type="text" inputmode="numeric"></div>
-      <div class="fl dua">
+      <div class="fl"><label for="kal_qty">Jumlah Order (pcs)</label><input id="kal_qty" type="text" inputmode="numeric" placeholder="Opsional - untuk simulasi total order"></div>
+      <div class="fl dua" id="kal_blokMargin">
         <div><label for="kal_margin">Margin</label><input id="kal_margin" inputmode="decimal" autocomplete="off" placeholder="mis. 25"></div>
         <div><div class="seg" id="kal_seg" style="margin:18px 0 0"><button data-a="kalMarginTipe" data-tp="persen" class="on">%</button><button data-a="kalMarginTipe" data-tp="rp">Rp</button></div></div>
       </div>
+      <div class="fl" id="kal_blokHarga" style="display:none"><label for="kal_hargaJual">Harga Jual per pcs (Rp) — yang sudah Anda tentukan sendiri</label><input id="kal_hargaJual" type="text" inputmode="numeric"></div>
       <div id="kal_hasil" style="margin-top:18px"></div>
     </div>
   </section>
@@ -571,7 +574,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.55', API_MIN = 17;
+const VERSI = '5.56', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1124,7 +1127,8 @@ const totalOperator = (items) => items.reduce((a, it) => a + (Number(it.BiayaOpe
 const opTerakhir = () => { try { const v = localStorage.getItem(K_OP); return v === null ? 50 : (Number(v) || 0); } catch (e) { return 50; } };
 
 // ---------- Kalkulator Harga Jual (alat bantu hitung berdiri sendiri, tidak mengubah data apa pun) ----------
-let kalInit = false, kalMarginTipe = 'persen';
+// Mode 'jual': isi Margin -> keluar saran Harga Jual. Mode 'margin': isi Harga Jual sendiri -> dihitung mundur Margin yang didapat.
+let kalInit = false, kalMarginTipe = 'persen', kalMode = 'jual';
 function isiKalkulator() {
   if (!kalInit) { kalInit = true; $('kal_operator').value = formatRibuan(String(opTerakhir())); }
   hitungKalkulator();
@@ -1143,16 +1147,40 @@ function hitungKalkulator() {
   }
   const opr = Number(angkaBersih($('kal_operator').value)) || 0;
   const modal = hpp + opr;
-  const marginInput = parseFloat(String($('kal_margin').value || '').replace(',', '.')) || 0;
-  const marginRp = Math.round(kalMarginTipe === 'persen' ? (modal * marginInput / 100) : marginInput);
-  const marginPersenTampil = modal > 0 ? (marginRp / modal * 100) : 0;
-  const jual = modal + marginRp;
+  const qty = Number(angkaBersih($('kal_qty').value)) || 0;
   if (!b && !opr) { $('kal_hasil').innerHTML = '<div class="kosong">Isi Nama Item (atau Biaya Operator) untuk mulai menghitung.</div>'; return; }
-  $('kal_hasil').innerHTML = R('HPP Gelas', n0(Math.round(hpp)))
+
+  let margin, jual, marginInputTeks = '';
+  if (kalMode === 'jual') {
+    const marginInput = parseFloat(String($('kal_margin').value || '').replace(',', '.')) || 0;
+    margin = Math.round(kalMarginTipe === 'persen' ? (modal * marginInput / 100) : marginInput);
+    jual = modal + margin;
+    marginInputTeks = kalMarginTipe === 'rp' ? '' : `${nf(marginInput)}% dari modal`;
+  } else {
+    jual = Number(angkaBersih($('kal_hargaJual').value)) || 0;
+    margin = Math.round(jual - modal);
+  }
+  const marginPersen = modal > 0 ? (margin / modal * 100) : 0;
+  const rugi = margin < 0;
+  const marginTampil = rugi ? `<span class="neg">${n0(margin)}</span>` : n0(margin);
+
+  let html = R('HPP Gelas', n0(Math.round(hpp)))
     + R('Biaya Operator', n0(opr))
-    + R('Modal per pcs', n0(Math.round(modal)), 'tebal')
-    + R('Margin', n0(marginRp), '', kalMarginTipe === 'rp' ? `≈ ${nf(Math.round(marginPersenTampil * 10) / 10)}% dari modal` : `${nf(marginInput)}% dari modal`)
-    + R('Harga Jual Disarankan / pcs', n0(Math.round(jual)), 'tebal');
+    + R('Modal per pcs', n0(Math.round(modal)), 'tebal');
+  if (kalMode === 'jual') {
+    html += R('Margin', marginTampil, '', marginInputTeks || `≈ ${nf(Math.round(marginPersen * 10) / 10)}% dari modal`)
+      + R('Harga Jual Disarankan / pcs', n0(Math.round(jual)), 'tebal');
+  } else {
+    html += R('Harga Jual Anda / pcs', n0(Math.round(jual)))
+      + R('Margin Kotor / pcs', marginTampil, 'tebal', `≈ ${nf(Math.round(marginPersen * 10) / 10)}% dari modal` + (rugi ? ' · RUGI' : ''));
+  }
+  if (qty > 0) {
+    html += R('Jumlah Order', nf(qty) + ' pcs')
+      + R('Total Modal', n0(Math.round(modal * qty)))
+      + R('Total Harga Jual', n0(Math.round(jual * qty)))
+      + R('Total ' + (kalMode === 'jual' ? 'Margin' : 'Margin Kotor'), rugi ? `<span class="neg">${n0(Math.round(margin * qty))}</span>` : n0(Math.round(margin * qty)), 'tebal');
+  }
+  $('kal_hasil').innerHTML = html;
 }
 
 function notaBaru() {
@@ -2332,6 +2360,13 @@ const ACT = {
   kepada: () => bukaKepada(), kepadaOK: () => okKepada(), pilihPel: () => bukaPilih('pelanggan'),
   rincian: () => bukaRincian(), rincianOK: () => okRincian(),
   kalMarginTipe: (el) => { kalMarginTipe = el.dataset.tp; document.querySelectorAll('#kal_seg button').forEach((x) => x.classList.toggle('on', x.dataset.tp === kalMarginTipe)); hitungKalkulator(); },
+  kalMode: (el) => {
+    kalMode = el.dataset.m;
+    document.querySelectorAll('#kal_modeseg button').forEach((x) => x.classList.toggle('on', x.dataset.m === kalMode));
+    $('kal_blokMargin').style.display = kalMode === 'jual' ? '' : 'none';
+    $('kal_blokHarga').style.display = kalMode === 'margin' ? '' : 'none';
+    hitungKalkulator();
+  },
   tambahan: () => bukaTambahan(), tambahanOK: () => okTambahan(),
   hapusNotaDlg: async () => { const id = E && E.id; if (id && await hapusNota(id)) { $('dlgRincian').close(); E = null; tutupLayar(); } },
   simpanNota: () => simpanNota(),
@@ -2448,8 +2483,8 @@ if (window.matchMedia && matchMedia('(pointer: coarse)').matches) {
 const tunda = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 $('n_cari').addEventListener('input', tunda(() => { notaTampil = 0; renderNota(lihat()); }, 150));
 $('dk_baru').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tambahKatBaru(); } });
-['u_saldo', 'it_harga', 'it_jml', 'it_op', 'b_jml', 'bb_jml', 't_ongkir', 't_lainRp', 'kal_operator'].forEach((id) => pasangRibuan($(id)));
-['kal_item', 'kal_operator', 'kal_margin'].forEach((id) => $(id).addEventListener('input', hitungKalkulator));
+['u_saldo', 'it_harga', 'it_jml', 'it_op', 'b_jml', 'bb_jml', 't_ongkir', 't_lainRp', 'kal_operator', 'kal_qty', 'kal_hargaJual'].forEach((id) => pasangRibuan($(id)));
+['kal_item', 'kal_operator', 'kal_margin', 'kal_qty', 'kal_hargaJual'].forEach((id) => $(id).addEventListener('input', hitungKalkulator));
 $('ci_cari').addEventListener('input', tunda(() => { $('ci_list').innerHTML = daftarCrud('barang', $('ci_cari'), null); }, 150));
 $('bi_cari').addEventListener('input', tunda(() => { $('bi_list').innerHTML = daftarCrud('bahan', $('bi_cari'), null); }, 150));
 $('cl_cari').addEventListener('input', tunda(renderDaftarList, 150));
