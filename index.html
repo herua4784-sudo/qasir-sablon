@@ -569,7 +569,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.58', API_MIN = 17;
+const VERSI = '5.59', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1147,7 +1147,7 @@ function hitungKalkulator() {
 
   const jual = Number(angkaBersih($('kal_hargaJual').value)) || 0;
   const margin = Math.round(jual - modal);
-  const marginPersen = modal > 0 ? (margin / modal * 100) : 0;
+  const marginPersen = jual > 0 ? (margin / jual * 100) : 0;   // Margin Kotor % standar akuntansi = Laba Kotor / Pendapatan (Harga Jual), bukan / Modal
   const rugi = margin < 0;
   const marginTampil = rugi ? `<span class="neg">${n0(margin)}</span>` : n0(margin);
 
@@ -1155,7 +1155,7 @@ function hitungKalkulator() {
     + R('Biaya Operator', n0(opr))
     + R('Modal per pcs', n0(Math.round(modal)), 'tebal')
     + R('Harga Jual per pcs', n0(Math.round(jual)))
-    + R('Margin Kotor / pcs', marginTampil, 'tebal', `≈ ${nf(Math.round(marginPersen * 10) / 10)}% dari modal` + (rugi ? ' · RUGI' : ''));
+    + R('Margin Kotor / pcs', marginTampil, 'tebal', `≈ ${nf(Math.round(marginPersen * 10) / 10)}% dari Harga Jual` + (rugi ? ' · RUGI' : ''));
   if (qty > 0) {
     html += R('Jumlah Order', nf(qty) + ' pcs')
       + R('Harga Jual', n0(Math.round(jual * qty)))
