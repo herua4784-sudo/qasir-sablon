@@ -569,7 +569,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.59', API_MIN = 17;
+const VERSI = '5.60', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -901,6 +901,7 @@ function gantiLayar(dari, ke) {
 }
 window.addEventListener('popstate', () => {
   if (abaikan > 0) { abaikan--; return; }
+  if (kbGuard) { kbGuard = false; kbGuardConsumed = true; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); return; }
   const dlg = document.querySelector('dialog[open]');
   if (dlg) { dlg.close(); history.pushState({ l: stack.length }, ''); return; }
   const atas = stack[stack.length - 1];
@@ -2446,11 +2447,26 @@ document.addEventListener('click', (e) => {
   if ($('aksiBar').classList.contains('on') && !e.target.closest('#aksiBar')) { tutupAksi(); e.stopPropagation(); e.preventDefault(); }
 }, true);
 
-// Saat keyboard HP terbuka, sembunyikan batang menu bawah (tidak ikut terdorong naik)
+// Saat keyboard HP terbuka, sembunyikan batang menu bawah (tidak ikut terdorong naik).
+// kbGuard: selipkan satu riwayat navigasi ekstra saat keyboard terbuka di layar utama (tanpa layer/dialog),
+// supaya tombol kembali pertama hanya menutup keyboard, bukan langsung keluar aplikasi.
+let kbGuard = false, kbGuardConsumed = false;
 if (window.matchMedia && matchMedia('(pointer: coarse)').matches) {
   const kolom = (el) => el && el.matches && el.matches('input:not([type=checkbox]):not([type=file]), textarea');
-  document.addEventListener('focusin', (e) => { if (kolom(e.target)) $('app').classList.add('kb'); });
-  document.addEventListener('focusout', () => setTimeout(() => { if (!kolom(document.activeElement)) $('app').classList.remove('kb'); }, 120));
+  document.addEventListener('focusin', (e) => {
+    if (!kolom(e.target)) return;
+    $('app').classList.add('kb');
+    if (!stack.length && !kbGuard) { kbGuard = true; history.pushState({ kb: true }, ''); }
+  });
+  document.addEventListener('focusout', () => setTimeout(() => {
+    if (kolom(document.activeElement)) return;
+    $('app').classList.remove('kb');
+    if (kbGuard) {
+      kbGuard = false;
+      if (!kbGuardConsumed) { abaikan++; history.back(); }
+      kbGuardConsumed = false;
+    }
+  }, 120));
 }
 
 // ---------- input ----------
