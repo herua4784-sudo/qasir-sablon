@@ -569,7 +569,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.60', API_MIN = 17;
+const VERSI = '5.61', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1320,12 +1320,13 @@ function hitungItem() {
   $('it_opinfo').textContent = f.Jumlah > 0 ? `Biaya operator item ini: ${nf(pcsItem(f))} pcs × ${n0(f.OperatorPerPcs)} = ${n0(Math.round(pcsItem(f) * f.OperatorPerPcs))}` : '';
   infoStokItem();
 }
+const satuanOtomatis = (nama) => (/\b(tutup|lid)\b/i.test(String(nama || '')) ? 'pcs' : 'gelas');   // tutup/LID -> pcs, selain itu -> gelas
 function autoBarang() {                  // harga tidak diisi otomatis: harga dimasukkan saat membuat nota
   const b = cocokBarang($('it_nama').value); EI.barangId = b ? b.ID : '';
-  if (b && b.Satuan) $('it_sat').value = b.Satuan;
+  $('it_sat').value = satuanOtomatis($('it_nama').value);
   hitungItem();
 }
-function itemBaru() { EI = { idx: -1, kat: KAT_ALLIN, barangId: '' }; $('it_judul').textContent = 'Tambah Item'; $('it_hapus').style.display = 'none'; isiFormItem({ Kategori: KAT_ALLIN, Satuan: 'pcs' }); bukaLayar('l_itemform'); setTimeout(() => $('it_nama').focus(), 60); }
+function itemBaru() { EI = { idx: -1, kat: KAT_ALLIN, barangId: '' }; $('it_judul').textContent = 'Tambah Item'; $('it_hapus').style.display = 'none'; isiFormItem({ Kategori: KAT_ALLIN, Satuan: 'gelas' }); bukaLayar('l_itemform'); setTimeout(() => $('it_nama').focus(), 60); }
 function itemEdit(i) { EI = { idx: i, kat: E.items[i].Kategori, barangId: E.items[i].BarangID || '' }; $('it_judul').textContent = 'Ubah Item'; $('it_hapus').style.display = ''; isiFormItem(E.items[i]); bukaLayar('l_itemform'); }
 function okItem() {
   const f = bacaFormItem();
