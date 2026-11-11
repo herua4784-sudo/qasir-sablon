@@ -569,7 +569,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.61', API_MIN = 17;
+const VERSI = '5.62', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1945,8 +1945,9 @@ function dataLap(dari, sampai) {
 function labaRugi(d) {
   const pj = jml(d.ps, (o) => o.Total), modal = jml(d.ps, (o) => o.Modal), op = jml(d.ps, (o) => o.BiayaOperator);
   const bahan = jml(d.blBiasa, biayaBeli), peng = jml(d.pg, (r) => r.Jumlah), rugi = jml(d.py, (r) => r.Rugi || 0);
-  const tanpa = d.ps.reduce((a, o) => a + o.Items.filter((i) => i.TanpaHPP).length, 0);
-  return { pj, modal, kotor: pj - modal, op, bahan, peng, rugi, bersih: pj - modal - op - bahan - peng - rugi, tanpa };
+  const daftarTanpa = []; d.ps.forEach((o) => o.Items.forEach((i) => { if (i.TanpaHPP) daftarTanpa.push({ nota: o, it: i }); }));
+  const tanpa = daftarTanpa.length;
+  return { pj, modal, kotor: pj - modal, op, bahan, peng, rugi, bersih: pj - modal - op - bahan - peng - rugi, tanpa, daftarTanpa };
 }
 const R = (t, v, k, sub) => `<div class="lp ${k || ''}"><span>${t}${sub ? `<small>${sub}</small>` : ''}</span><span class="v">${v}</span></div>`;
 const JD = (t) => `<div class="lp judul"><span>${t}</span><span></span></div>`;
@@ -2160,7 +2161,13 @@ function lapLabaBersih(v) {
   if (koreksi) out.push(B('* Koreksi Stok', n0(koreksi), { k: 'in', sg: koreksi > 0 ? '+' : '−' }));
   out.push(B('Harga Pokok Penjualan', n0(L.modal), { k: 'tb' }), '<div style="height:14px"></div>', B('LABA KOTOR', warnaAngka(L.kotor), { k: 'gd' }), '<div style="height:10px"></div>');
   out.push(B('Biaya Operator Mesin', n0(L.op)), B('Bahan Habis Pakai (tinta, film, dll)', n0(L.bahan)), ...perKat.map((g) => B(esc(g.k), n0(g.a))), ...(L.rugi ? [B('Kerugian Stok (Rusak/Hilang)', n0(L.rugi))] : []), B('Total Biaya', n0(L.op + L.bahan + L.peng + L.rugi), { k: 'tb' }), '<div style="height:14px"></div>', B('LABA BERSIH', warnaAngka(L.bersih), { k: 'gd' }));
-  if (L.tanpa) out.push(`<div class="kosong">${L.tanpa} item All-In belum punya HPP, jadi modalnya dihitung 0 (bukan item stok / belum ada pembelian).</div>`);
+  if (L.tanpa) {
+    const idB = new Set(v.Barang.map((x) => x.ID));
+    out.push(`<div class="kosong">${L.tanpa} item All-In modalnya terhitung 0:<br>` + L.daftarTanpa.map(({ nota, it }) => {
+      const sebab = !(it.BarangID && idB.has(it.BarangID)) ? 'nama tidak cocok dengan menu Item (stok tidak terhubung)' : 'dijual sebelum ada pembelian / stok awal ber-HPP';
+      return `• ${esc(it.Deskripsi)} · ${esc(nota.NoInvoice || '')} · ${tglDMY(nota.Tanggal)}<br>&nbsp;&nbsp;<small>${sebab}</small>`;
+    }).join('<br>') + '</div>');
+  }
   return out;
 }
 
