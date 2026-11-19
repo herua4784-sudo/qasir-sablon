@@ -403,10 +403,12 @@
   <!-- ================= LAYAR: DAFTAR BELANJA ================= -->
   <div class="layar" id="l_belanja">
     <div class="bar hitam"><button class="bi" data-a="back"><i data-ic="back"></i></button><div class="jdl">Daftar Belanja</div>
+      <button class="bi" data-a="belanjaKirim" aria-label="Kirim ke supplier"><i data-ic="bagikan"></i></button>
       <button class="bi" data-a="belanjaBersih" aria-label="Hapus yang sudah dicentang"><i data-ic="hapus"></i></button></div>
     <div class="isi">
       <div class="dk-tambah" style="margin:12px 16px"><input id="bj_baru" placeholder="Tambah barang, mis. Tinta M4 2 botol" autocomplete="off"><button data-a="belanjaTambah">Tambah</button></div>
       <div id="bj_list"></div>
+      <div style="margin:14px 16px 90px"><button class="bt" data-a="belanjaWA" style="width:100%">Kirim lewat WhatsApp</button></div>
     </div>
   </div>
 
@@ -579,7 +581,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.63', API_MIN = 17;
+const VERSI = '5.64', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -2354,6 +2356,8 @@ const ACT = {
   belanjaCek: (el) => belanjaCek(el.dataset.id),
   belanjaHapus: (el) => belanjaHapus(el.dataset.id),
   belanjaBersih: () => belanjaBersih(),
+  belanjaWA: () => belanjaWA(),
+  belanjaKirim: () => belanjaKirim(),
   menuBuka: (el) => bukaDaftar(el.dataset.d),
   filter: () => { $('fl_bulan').value = F.bulan; $('fl_status').value = F.status; $('dlgFilter').showModal(); },
   filterOK: () => { F.bulan = $('fl_bulan').value; F.status = $('fl_status').value; notaTampil = 0; $('dlgFilter').close(); render(); },
@@ -2507,6 +2511,21 @@ function belanjaTambah() {
 }
 function belanjaCek(id) { const a = bacaBelanja(), x = a.find((r) => r.id === id); if (x) { x.ok = !x.ok; simpanBelanja(a); renderBelanja(); } }
 function belanjaHapus(id) { simpanBelanja(bacaBelanja().filter((r) => r.id !== id)); renderBelanja(); }
+async function belanjaKirim() {
+  const a = bacaBelanja().filter((r) => !r.ok);
+  if (!a.length) { pesan('Tidak ada barang yang perlu dikirim.'); return; }
+  const nama = (lihat().cfg && lihat().cfg.nama) || '';
+  const teks = `*Daftar Belanja*${nama ? ' - ' + nama : ''}\n${tglDMY(hariIni())}\n\n` + a.map((r, i) => `${i + 1}. ${r.t}`).join('\n') + '\n\nTerima kasih.';
+  if (navigator.share) { try { await navigator.share({ text: teks }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+  window.open('https://wa.me/?text=' + encodeURIComponent(teks), '_blank');
+}
+function belanjaWA() {
+  const a = bacaBelanja().filter((r) => !r.ok);
+  if (!a.length) { pesan('Tidak ada barang yang perlu dikirim.'); return; }
+  const nama = (lihat().cfg && lihat().cfg.nama) || '';
+  const teks = 'Halo, saya mau pesan' + (nama ? ' (' + nama + ')' : '') + ':\n' + a.map((r, i) => `${i + 1}. ${r.t}`).join('\n') + '\n\nTerima kasih.';
+  window.open('https://wa.me/?text=' + encodeURIComponent(teks), '_blank');
+}
 async function belanjaBersih() {
   const a = bacaBelanja(), n = a.filter((r) => r.ok).length;
   if (!n) { pesan('Belum ada yang dicentang.'); return; }
