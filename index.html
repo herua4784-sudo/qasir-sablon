@@ -588,7 +588,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.67', API_MIN = 17;
+const VERSI = '5.69', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -2509,9 +2509,11 @@ if (window.matchMedia && matchMedia('(pointer: coarse)').matches) {
 const K_BELANJA = 'qsg_belanja';
 const bacaBelanja = () => { try { const v = JSON.parse(localStorage.getItem(K_BELANJA) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
 const simpanBelanja = (a) => { try { localStorage.setItem(K_BELANJA, JSON.stringify(a)); } catch (e) { pesan('Gagal menyimpan daftar belanja.'); } };
+const SAT_BELANJA = ['pcs', 'dus', 'lembar', 'liter', 'drigen', 'botol', 'kodi', 'lusin', 'pak', 'kg', 'set', 'roll'];
+const teksJml = (r) => (r.q ? r.q + (r.u && /^[\d.,\s]+$/.test(r.q) ? ' ' + r.u : '') : '');
 function renderBelanja() {
   const a = bacaBelanja(), stokDaftar = {}; namaBelanja().forEach((x) => { stokDaftar[x.n.toLowerCase()] = 'stok ' + nf(x.st) + ' ' + x.sat; });
-  $('bj_list').innerHTML = a.length ? a.map((x) => `<div class="dk-row" style="padding:11px 16px"><input type="checkbox" data-a="belanjaCek" data-id="${x.id}" ${x.ok ? 'checked' : ''} style="width:22px;height:22px;margin-right:12px;flex:none"><span data-a="belanjaCek" data-id="${x.id}" style="${x.ok ? 'text-decoration:line-through;color:#888' : ''}">${esc(x.t)}${stokDaftar[x.t.toLowerCase()] ? ' <small style="color:#888">· ' + stokDaftar[x.t.toLowerCase()] + '</small>' : ''}</span><input class="bjq" data-id="${x.id}" value="${esc(x.q || '')}" placeholder="jumlah" autocomplete="off" style="width:78px;flex:none;margin-left:8px;text-align:center"><button data-a="belanjaHapus" data-id="${x.id}" aria-label="Hapus"><i data-ic="hapus"></i></button></div>`).join('') : '<div class="kosong">Daftar belanja masih kosong.<br>Ketuk "Pilih dari Item &amp; Bahan" untuk menambah.</div>';
+  $('bj_list').innerHTML = a.length ? a.map((x) => `<div class="dk-row" style="padding:10px 16px;display:block"><div style="display:flex;align-items:center"><input type="checkbox" data-a="belanjaCek" data-id="${x.id}" ${x.ok ? 'checked' : ''} style="width:22px;height:22px;margin-right:12px;flex:none"><span data-a="belanjaCek" data-id="${x.id}" style="${x.ok ? 'text-decoration:line-through;color:#888' : ''}">${esc(x.t)}${stokDaftar[x.t.toLowerCase()] ? ' <small style="color:#888">· ' + stokDaftar[x.t.toLowerCase()] + '</small>' : ''}</span><button data-a="belanjaHapus" data-id="${x.id}" aria-label="Hapus"><i data-ic="hapus"></i></button></div><div style="display:flex;gap:8px;margin:8px 0 0 34px"><input class="bjq" data-id="${x.id}" value="${esc(x.q || '')}" placeholder="jumlah" inputmode="decimal" autocomplete="off" style="width:90px;text-align:center"><select class="bju" data-id="${x.id}" style="width:110px">${SAT_BELANJA.map((u) => `<option${(x.u || 'pcs') === u ? ' selected' : ''}>${u}</option>`).join('')}</select></div></div>`).join('') : '<div class="kosong">Daftar belanja masih kosong.<br>Ketuk "Pilih dari Item &amp; Bahan" untuk menambah.</div>';
   pasangIkon();
 }
 const namaBelanja = () => {
@@ -2537,14 +2539,14 @@ async function belanjaKirim() {
   const a = bacaBelanja().filter((r) => !r.ok);
   if (!a.length) { pesan('Tidak ada barang yang perlu dikirim.'); return; }
   const nama = (lihat().cfg && lihat().cfg.nama) || '';
-  const teks = `*Daftar Belanja*${nama ? ' - ' + nama : ''}\n${tglDMY(hariIni())}\n\n` + a.map((r, i) => `${i + 1}. ${r.t}${r.q ? ' - ' + r.q : ''}`).join('\n') + '\n\nTerima kasih.';
+  const teks = `*Daftar Belanja*${nama ? ' - ' + nama : ''}\n${tglDMY(hariIni())}\n\n` + a.map((r, i) => `${i + 1}. ${r.t}${teksJml(r) ? ' : ' + teksJml(r) : ''}`).join('\n') + '\n\nTerima kasih.';
   if (navigator.share) { try { await navigator.share({ text: teks }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
   window.open('https://wa.me/?text=' + encodeURIComponent(teks), '_blank');
 }
 function teksBelanja() {
   const a = bacaBelanja().filter((r) => !r.ok); if (!a.length) return '';
   const nama = (lihat().cfg && lihat().cfg.nama) || '';
-  return 'Halo, saya mau pesan' + (nama ? ' (' + nama + ')' : '') + ':\n' + a.map((r, i) => `${i + 1}. ${r.t}${r.q ? ' - ' + r.q : ''}`).join('\n') + '\n\nTerima kasih.';
+  return 'Halo, saya mau pesan' + (nama ? ' (' + nama + ')' : '') + ':\n' + a.map((r, i) => `${i + 1}. ${r.t}${teksJml(r) ? ' : ' + teksJml(r) : ''}`).join('\n') + '\n\nTerima kasih.';
 }
 function belanjaWA() {
   const teks = teksBelanja(); if (!teks) { pesan('Tidak ada barang yang perlu dikirim.'); return; }
@@ -2567,7 +2569,7 @@ async function belanjaBersih() {
 // ---------- input ----------
 const tunda = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 $('bp_cari').addEventListener('input', renderBelanjaPilih);
-$('bj_list').addEventListener('change', (e) => { if (e.target.classList.contains('bjq')) { const a = bacaBelanja(), x = a.find((r) => r.id === e.target.dataset.id); if (x) { x.q = e.target.value.trim(); simpanBelanja(a); } } });
+$('bj_list').addEventListener('change', (e) => { const c = e.target.classList, q = c.contains('bjq'), u = c.contains('bju'); if (!q && !u) return; const a = bacaBelanja(), x = a.find((r) => r.id === e.target.dataset.id); if (x) { if (q) x.q = e.target.value.trim(); else x.u = e.target.value; simpanBelanja(a); } });
 $('n_cari').addEventListener('input', tunda(() => { notaTampil = 0; renderNota(lihat()); }, 150));
 $('dk_baru').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tambahKatBaru(); } });
 ['u_saldo', 'it_harga', 'it_jml', 'it_op', 'b_jml', 'bb_jml', 't_ongkir', 't_lainRp', 'kal_operator', 'kal_qty', 'kal_hargaJual'].forEach((id) => pasangRibuan($(id)));
