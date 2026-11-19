@@ -588,7 +588,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.69', API_MIN = 17;
+const VERSI = '5.70', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -2545,8 +2545,7 @@ async function belanjaKirim() {
 }
 function teksBelanja() {
   const a = bacaBelanja().filter((r) => !r.ok); if (!a.length) return '';
-  const nama = (lihat().cfg && lihat().cfg.nama) || '';
-  return 'Halo, saya mau pesan' + (nama ? ' (' + nama + ')' : '') + ':\n' + a.map((r, i) => `${i + 1}. ${r.t}${teksJml(r) ? ' : ' + teksJml(r) : ''}`).join('\n') + '\n\nTerima kasih.';
+  return 'Mau pesan ini kk\n' + a.map((r, i) => `${i + 1}. ${r.t}${teksJml(r) ? ' : ' + teksJml(r) : ''}`).join('\n') + '\n\nTerima kasih.';
 }
 function belanjaWA() {
   const teks = teksBelanja(); if (!teks) { pesan('Tidak ada barang yang perlu dikirim.'); return; }
