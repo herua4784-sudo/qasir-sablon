@@ -400,6 +400,16 @@
     <button class="fab" id="cl_fab" data-a="crudBaru"><i data-ic="add"></i></button>
   </div>
 
+  <!-- ================= LAYAR: DAFTAR BELANJA ================= -->
+  <div class="layar" id="l_belanja">
+    <div class="bar hitam"><button class="bi" data-a="back"><i data-ic="back"></i></button><div class="jdl">Daftar Belanja</div>
+      <button class="bi" data-a="belanjaBersih" aria-label="Hapus yang sudah dicentang"><i data-ic="hapus"></i></button></div>
+    <div class="isi">
+      <div class="dk-tambah" style="margin:12px 16px"><input id="bj_baru" placeholder="Tambah barang, mis. Tinta M4 2 botol" autocomplete="off"><button data-a="belanjaTambah">Tambah</button></div>
+      <div id="bj_list"></div>
+    </div>
+  </div>
+
   <!-- ================= LAYAR: FORM UMUM ================= -->
   <div class="layar" id="l_form">
     <div class="bar hitam"><button class="bi" data-a="back"><i data-ic="back"></i></button><div class="jdl" id="f_judul"></div>
@@ -569,7 +579,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.62', API_MIN = 17;
+const VERSI = '5.63', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -2338,7 +2348,12 @@ const ACT = {
   cariNota: () => { const r = $('n_carirow'), buka = r.style.display === 'none'; r.style.display = buka ? '' : 'none'; if (buka) $('n_cari').focus(); else { $('n_cari').value = ''; render(); } },
   menuNota: () => popup([{ a: 'menuBuka', d: 'pelanggan', t: 'Pelanggan' }, { a: 'menuBuka', d: 'pembelian', t: 'Pembelian' }, { a: 'menuBuka', d: 'pengeluaran', t: 'Pengeluaran' }, { a: 'menuBuka', d: 'transfer', t: 'Transfer / Setoran' }]),
   menuItem: () => popup([{ a: 'menuBuka', d: 'penyesuaian', t: 'Penyesuaian Stok' }]),
-  menuBahan: () => popup([{ a: 'menuBuka', d: 'mutasibahan', t: 'Catat Tambah/Pakai Bahan' }]),
+  menuBahan: () => popup([{ a: 'daftarBelanja', t: 'Daftar Belanja' }, { a: 'menuBuka', d: 'mutasibahan', t: 'Catat Tambah/Pakai Bahan' }]),
+  daftarBelanja: () => { tutupPopup(); renderBelanja(); bukaLayar('l_belanja'); },
+  belanjaTambah: () => belanjaTambah(),
+  belanjaCek: (el) => belanjaCek(el.dataset.id),
+  belanjaHapus: (el) => belanjaHapus(el.dataset.id),
+  belanjaBersih: () => belanjaBersih(),
   menuBuka: (el) => bukaDaftar(el.dataset.d),
   filter: () => { $('fl_bulan').value = F.bulan; $('fl_status').value = F.status; $('dlgFilter').showModal(); },
   filterOK: () => { F.bulan = $('fl_bulan').value; F.status = $('fl_status').value; notaTampil = 0; $('dlgFilter').close(); render(); },
@@ -2477,8 +2492,30 @@ if (window.matchMedia && matchMedia('(pointer: coarse)').matches) {
   }, 120));
 }
 
+// ---------- daftar belanja (disimpan di HP ini saja) ----------
+const K_BELANJA = 'qsg_belanja';
+const bacaBelanja = () => { try { const v = JSON.parse(localStorage.getItem(K_BELANJA) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+const simpanBelanja = (a) => { try { localStorage.setItem(K_BELANJA, JSON.stringify(a)); } catch (e) { pesan('Gagal menyimpan daftar belanja.'); } };
+function renderBelanja() {
+  const a = bacaBelanja();
+  $('bj_list').innerHTML = a.length ? a.map((x) => `<div class="dk-row" style="padding:11px 16px"><input type="checkbox" data-a="belanjaCek" data-id="${x.id}" ${x.ok ? 'checked' : ''} style="width:22px;height:22px;margin-right:12px;flex:none"><span data-a="belanjaCek" data-id="${x.id}" style="${x.ok ? 'text-decoration:line-through;color:#888' : ''}">${esc(x.t)}</span><button data-a="belanjaHapus" data-id="${x.id}" aria-label="Hapus"><i data-ic="hapus"></i></button></div>`).join('') : '<div class="kosong">Daftar belanja masih kosong.</div>';
+  if (typeof pasangIkon === 'function') pasangIkon($('bj_list'));
+}
+function belanjaTambah() {
+  const t = $('bj_baru').value.trim(); if (!t) return;
+  const a = bacaBelanja(); a.push({ id: uid(), t, ok: false }); simpanBelanja(a); $('bj_baru').value = ''; renderBelanja(); $('bj_baru').focus();
+}
+function belanjaCek(id) { const a = bacaBelanja(), x = a.find((r) => r.id === id); if (x) { x.ok = !x.ok; simpanBelanja(a); renderBelanja(); } }
+function belanjaHapus(id) { simpanBelanja(bacaBelanja().filter((r) => r.id !== id)); renderBelanja(); }
+async function belanjaBersih() {
+  const a = bacaBelanja(), n = a.filter((r) => r.ok).length;
+  if (!n) { pesan('Belum ada yang dicentang.'); return; }
+  if (await konfirmasi('Hapus yang dicentang', `Hapus ${n} barang yang sudah dicentang dari daftar belanja?`)) { simpanBelanja(a.filter((r) => !r.ok)); renderBelanja(); }
+}
+
 // ---------- input ----------
 const tunda = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+$('bj_baru').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); belanjaTambah(); } });
 $('n_cari').addEventListener('input', tunda(() => { notaTampil = 0; renderNota(lihat()); }, 150));
 $('dk_baru').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tambahKatBaru(); } });
 ['u_saldo', 'it_harga', 'it_jml', 'it_op', 'b_jml', 'bb_jml', 't_ongkir', 't_lainRp', 'kal_operator', 'kal_qty', 'kal_hargaJual'].forEach((id) => pasangRibuan($(id)));
