@@ -406,9 +406,9 @@
       <button class="bi" data-a="belanjaKirim" aria-label="Kirim ke supplier"><i data-ic="bagikan"></i></button>
       <button class="bi" data-a="belanjaBersih" aria-label="Hapus yang sudah dicentang"><i data-ic="hapus"></i></button></div>
     <div class="isi">
-      <div class="dk-tambah" style="margin:12px 16px"><input id="bj_baru" placeholder="Tambah barang, mis. Tinta M4 2 botol" autocomplete="off"><button data-a="belanjaTambah">Tambah</button></div>
+      <div style="margin:12px 16px"><button class="bt putih" data-a="belanjaPilih" style="width:100%">+ Pilih dari Item &amp; Bahan</button></div>
       <div id="bj_list"></div>
-      <div style="margin:14px 16px 90px"><button class="bt" data-a="belanjaWA" style="width:100%">Kirim lewat WhatsApp</button></div>
+      <div style="margin:14px 16px 90px"><button class="bt" data-a="belanjaWA" style="width:100%">Kirim lewat WhatsApp</button><button class="bt putih" data-a="belanjaSalin" style="width:100%;margin-top:10px">Salin sebagai Teks</button></div>
     </div>
   </div>
 
@@ -571,6 +571,13 @@
   <div class="baris-tombol"><button class="bt putih" data-a="tutupDlg" style="width:100%">Batal</button></div>
 </div></dialog>
 
+<dialog id="dlgBelanjaPilih"><div class="dl">
+  <h2>Pilih Barang</h2>
+  <div class="dk-tambah"><input id="bp_cari" type="search" placeholder="Cari nama item / bahan" autocomplete="off"></div>
+  <div class="dk-list" id="bp_list"></div>
+  <div class="baris-tombol" style="margin-top:16px"><button class="bt putih" data-a="tutupDlg" style="width:100%">Selesai</button></div>
+</div></dialog>
+
 <dialog id="dlgKonfirm"><div class="dl">
   <h2 id="kf_judul">Konfirmasi</h2>
   <div class="teks-konfirm" id="kf_teks"></div>
@@ -581,7 +588,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.64', API_MIN = 17;
+const VERSI = '5.66', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -2352,11 +2359,13 @@ const ACT = {
   menuItem: () => popup([{ a: 'menuBuka', d: 'penyesuaian', t: 'Penyesuaian Stok' }]),
   menuBahan: () => popup([{ a: 'daftarBelanja', t: 'Daftar Belanja' }, { a: 'menuBuka', d: 'mutasibahan', t: 'Catat Tambah/Pakai Bahan' }]),
   daftarBelanja: () => { tutupPopup(); renderBelanja(); bukaLayar('l_belanja'); },
-  belanjaTambah: () => belanjaTambah(),
+  belanjaPilih: () => { $('bp_cari').value = ''; renderBelanjaPilih(); $('dlgBelanjaPilih').showModal(); },
+  belanjaToggle: (el) => belanjaToggle(el.dataset.n),
   belanjaCek: (el) => belanjaCek(el.dataset.id),
   belanjaHapus: (el) => belanjaHapus(el.dataset.id),
   belanjaBersih: () => belanjaBersih(),
   belanjaWA: () => belanjaWA(),
+  belanjaSalin: () => belanjaSalin(),
   belanjaKirim: () => belanjaKirim(),
   menuBuka: (el) => bukaDaftar(el.dataset.d),
   filter: () => { $('fl_bulan').value = F.bulan; $('fl_status').value = F.status; $('dlgFilter').showModal(); },
@@ -2502,12 +2511,19 @@ const bacaBelanja = () => { try { const v = JSON.parse(localStorage.getItem(K_BE
 const simpanBelanja = (a) => { try { localStorage.setItem(K_BELANJA, JSON.stringify(a)); } catch (e) { pesan('Gagal menyimpan daftar belanja.'); } };
 function renderBelanja() {
   const a = bacaBelanja();
-  $('bj_list').innerHTML = a.length ? a.map((x) => `<div class="dk-row" style="padding:11px 16px"><input type="checkbox" data-a="belanjaCek" data-id="${x.id}" ${x.ok ? 'checked' : ''} style="width:22px;height:22px;margin-right:12px;flex:none"><span data-a="belanjaCek" data-id="${x.id}" style="${x.ok ? 'text-decoration:line-through;color:#888' : ''}">${esc(x.t)}</span><button data-a="belanjaHapus" data-id="${x.id}" aria-label="Hapus"><i data-ic="hapus"></i></button></div>`).join('') : '<div class="kosong">Daftar belanja masih kosong.</div>';
-  if (typeof pasangIkon === 'function') pasangIkon($('bj_list'));
+  $('bj_list').innerHTML = a.length ? a.map((x) => `<div class="dk-row" style="padding:11px 16px"><input type="checkbox" data-a="belanjaCek" data-id="${x.id}" ${x.ok ? 'checked' : ''} style="width:22px;height:22px;margin-right:12px;flex:none"><span data-a="belanjaCek" data-id="${x.id}" style="${x.ok ? 'text-decoration:line-through;color:#888' : ''}">${esc(x.t)}</span><input class="bjq" data-id="${x.id}" value="${esc(x.q || '')}" placeholder="jumlah" autocomplete="off" style="width:78px;flex:none;margin-left:8px;text-align:center"><button data-a="belanjaHapus" data-id="${x.id}" aria-label="Hapus"><i data-ic="hapus"></i></button></div>`).join('') : '<div class="kosong">Daftar belanja masih kosong.<br>Ketuk "Pilih dari Item &amp; Bahan" untuk menambah.</div>';
+  pasangIkon();
 }
-function belanjaTambah() {
-  const t = $('bj_baru').value.trim(); if (!t) return;
-  const a = bacaBelanja(); a.push({ id: uid(), t, ok: false }); simpanBelanja(a); $('bj_baru').value = ''; renderBelanja(); $('bj_baru').focus();
+const namaBelanja = () => { const v = lihat(), m = new Map(); v.Barang.forEach((b) => { if (b.Nama) m.set(String(b.Nama).trim().toLowerCase(), { n: String(b.Nama).trim(), j: 'Item' }); }); v.Bahan.forEach((b) => { if (b.Nama && !m.has(String(b.Nama).trim().toLowerCase())) m.set(String(b.Nama).trim().toLowerCase(), { n: String(b.Nama).trim(), j: 'Bahan' }); }); return [...m.values()].sort((x, y) => x.n.localeCompare(y.n, 'id')); };
+function renderBelanjaPilih() {
+  const q = $('bp_cari').value.trim().toLowerCase(), ada = new Set(bacaBelanja().map((r) => r.t.toLowerCase()));
+  const hasil = namaBelanja().filter((x) => !q || x.n.toLowerCase().includes(q));
+  $('bp_list').innerHTML = hasil.length ? hasil.map((x) => `<div class="dk-row" data-a="belanjaToggle" data-n="${esc(x.n)}"><span>${ada.has(x.n.toLowerCase()) ? '✓ ' : ''}${esc(x.n)} <small style="color:#888">${x.j}</small></span></div>`).join('') : '<div class="kosong">Tidak ada yang cocok.</div>';
+}
+function belanjaToggle(nama) {
+  const a = bacaBelanja(), k = a.findIndex((r) => r.t.toLowerCase() === String(nama).toLowerCase());
+  if (k >= 0) a.splice(k, 1); else a.push({ id: uid(), t: nama, ok: false, q: '' });
+  simpanBelanja(a); renderBelanjaPilih(); renderBelanja();
 }
 function belanjaCek(id) { const a = bacaBelanja(), x = a.find((r) => r.id === id); if (x) { x.ok = !x.ok; simpanBelanja(a); renderBelanja(); } }
 function belanjaHapus(id) { simpanBelanja(bacaBelanja().filter((r) => r.id !== id)); renderBelanja(); }
@@ -2515,16 +2531,26 @@ async function belanjaKirim() {
   const a = bacaBelanja().filter((r) => !r.ok);
   if (!a.length) { pesan('Tidak ada barang yang perlu dikirim.'); return; }
   const nama = (lihat().cfg && lihat().cfg.nama) || '';
-  const teks = `*Daftar Belanja*${nama ? ' - ' + nama : ''}\n${tglDMY(hariIni())}\n\n` + a.map((r, i) => `${i + 1}. ${r.t}`).join('\n') + '\n\nTerima kasih.';
+  const teks = `*Daftar Belanja*${nama ? ' - ' + nama : ''}\n${tglDMY(hariIni())}\n\n` + a.map((r, i) => `${i + 1}. ${r.t}${r.q ? ' - ' + r.q : ''}`).join('\n') + '\n\nTerima kasih.';
   if (navigator.share) { try { await navigator.share({ text: teks }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
   window.open('https://wa.me/?text=' + encodeURIComponent(teks), '_blank');
 }
-function belanjaWA() {
-  const a = bacaBelanja().filter((r) => !r.ok);
-  if (!a.length) { pesan('Tidak ada barang yang perlu dikirim.'); return; }
+function teksBelanja() {
+  const a = bacaBelanja().filter((r) => !r.ok); if (!a.length) return '';
   const nama = (lihat().cfg && lihat().cfg.nama) || '';
-  const teks = 'Halo, saya mau pesan' + (nama ? ' (' + nama + ')' : '') + ':\n' + a.map((r, i) => `${i + 1}. ${r.t}`).join('\n') + '\n\nTerima kasih.';
+  return 'Halo, saya mau pesan' + (nama ? ' (' + nama + ')' : '') + ':\n' + a.map((r, i) => `${i + 1}. ${r.t}${r.q ? ' - ' + r.q : ''}`).join('\n') + '\n\nTerima kasih.';
+}
+function belanjaWA() {
+  const teks = teksBelanja(); if (!teks) { pesan('Tidak ada barang yang perlu dikirim.'); return; }
   window.open('https://wa.me/?text=' + encodeURIComponent(teks), '_blank');
+}
+async function belanjaSalin() {
+  const teks = teksBelanja(); if (!teks) { pesan('Tidak ada barang yang perlu disalin.'); return; }
+  try { await navigator.clipboard.writeText(teks); pesan('Daftar belanja disalin. Tinggal tempel.'); }
+  catch (e) {
+    const t = document.createElement('textarea'); t.value = teks; t.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(t); t.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (x) {} t.remove(); pesan(ok ? 'Daftar belanja disalin. Tinggal tempel.' : 'Gagal menyalin.');
+  }
 }
 async function belanjaBersih() {
   const a = bacaBelanja(), n = a.filter((r) => r.ok).length;
@@ -2534,7 +2560,8 @@ async function belanjaBersih() {
 
 // ---------- input ----------
 const tunda = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
-$('bj_baru').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); belanjaTambah(); } });
+$('bp_cari').addEventListener('input', renderBelanjaPilih);
+$('bj_list').addEventListener('change', (e) => { if (e.target.classList.contains('bjq')) { const a = bacaBelanja(), x = a.find((r) => r.id === e.target.dataset.id); if (x) { x.q = e.target.value.trim(); simpanBelanja(a); } } });
 $('n_cari').addEventListener('input', tunda(() => { notaTampil = 0; renderNota(lihat()); }, 150));
 $('dk_baru').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tambahKatBaru(); } });
 ['u_saldo', 'it_harga', 'it_jml', 'it_op', 'b_jml', 'bb_jml', 't_ongkir', 't_lainRp', 'kal_operator', 'kal_qty', 'kal_hargaJual'].forEach((id) => pasangRibuan($(id)));
