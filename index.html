@@ -588,7 +588,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.72', API_MIN = 17;
+const VERSI = '5.73', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -2577,6 +2577,11 @@ async function belanjaBersih() {
   if (!n) { pesan('Belum ada yang dicentang.'); return; }
   if (await konfirmasi('Hapus yang dicentang', `Hapus ${n} barang yang sudah dicentang dari daftar belanja?`)) { simpanBelanja(a.filter((r) => !r.ok)); renderBelanja(); }
 }
+
+// Isian berpilihan (datalist): saat diketuk, tampilkan SEMUA pilihan (bukan hanya yang cocok dengan isi sekarang).
+// Isi lama dikosongkan sementara, dan dikembalikan bila Anda tidak memilih / mengetik apa pun.
+document.addEventListener('focusin', (e) => { const el = e.target; if (el && el.matches && el.matches('input[list]') && el.value && el.dataset.sv === undefined) { el.dataset.sv = el.value; el.value = ''; } });
+document.addEventListener('focusout', (e) => { const el = e.target; if (el && el.dataset && el.dataset.sv !== undefined) { if (el.value === '') el.value = el.dataset.sv; delete el.dataset.sv; } });
 
 // ---------- input ----------
 const tunda = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
