@@ -588,7 +588,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.70', API_MIN = 17;
+const VERSI = '5.71', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1313,7 +1313,12 @@ function cekStok(its) {
 function infoStokItem() {
   const el = $('it_stok'), b = EI.barangId && lihat().Barang.find((x) => x.ID === EI.barangId);
   el.className = 'info-stok';
-  if (!b) { el.textContent = $('it_nama').value.trim() ? 'Item ini tidak ada di menu Item, jadi stok tidak dilacak.' : ''; return; }
+  if (!b) {
+    const ada = $('it_nama').value.trim();
+    if (ada && EI.kat !== KAT_JASA) { el.textContent = '⚠ Nama item ini tidak ada di daftar menu Item, jadi stok tidak dilacak dan modal (HPP) dihitung 0. Pilih dari daftar Item.'; el.className = 'info-stok warn'; }
+    else el.textContent = ada ? 'Item ini tidak ada di menu Item, jadi stok tidak dilacak.' : '';
+    return;
+  }
   if (EI.kat === KAT_JASA) { el.textContent = 'Jasa Sablon Saja: stok gelas tidak berkurang.'; return; }
   const tersedia = stokTersedia(b.ID) - (pakaiStok(E.items, EI.idx)[b.ID] || 0), butuh = pcsItem(bacaFormItem());
   el.textContent = `Stok tersedia: ${nf(tersedia)} ${b.Satuan || 'pcs'}` + (butuh > tersedia ? ` — kurang ${nf(butuh - tersedia)}` : '');
@@ -1347,10 +1352,13 @@ function autoBarang() {                  // harga tidak diisi otomatis: harga di
 }
 function itemBaru() { EI = { idx: -1, kat: KAT_ALLIN, barangId: '' }; $('it_judul').textContent = 'Tambah Item'; $('it_hapus').style.display = 'none'; isiFormItem({ Kategori: KAT_ALLIN, Satuan: 'gelas' }); bukaLayar('l_itemform'); setTimeout(() => $('it_nama').focus(), 60); }
 function itemEdit(i) { EI = { idx: i, kat: E.items[i].Kategori, barangId: E.items[i].BarangID || '' }; $('it_judul').textContent = 'Ubah Item'; $('it_hapus').style.display = ''; isiFormItem(E.items[i]); bukaLayar('l_itemform'); }
-function okItem() {
+async function okItem() {
   const f = bacaFormItem();
   if (!f.Deskripsi) { pesan('Isi nama item.'); return; }
   if (f.Jumlah <= 0) { pesan('Isi banyaknya.'); return; }
+  if (f.Kategori !== KAT_JASA && !cocokBarang(f.Deskripsi)) {
+    if (!(await konfirmasi('Item Tidak Ada di Menu Item', `"${f.Deskripsi}" tidak ada di daftar menu Item.\nStok tidak akan dilacak dan modal (HPP) dihitung 0, sehingga laba kotor bisa tidak akurat.\n\nTetap simpan?`))) return;
+  }
   f.Subtotal = subItem(f); f.BiayaOperator = Math.round(pcsItem(f) * f.OperatorPerPcs);
   try { localStorage.setItem(K_OP, String(f.OperatorPerPcs)); } catch (e) {}
   if (EI.idx >= 0) { f.ID = E.items[EI.idx].ID; E.items[EI.idx] = f; } else { f.ID = uid(); E.items.push(f); }
