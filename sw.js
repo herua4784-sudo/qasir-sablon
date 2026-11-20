@@ -2,7 +2,7 @@
 // Tugas: menyimpan file aplikasi di HP supaya bisa dibuka tanpa internet.
 // Kalau Anda mengubah index.html, naikkan angka versi di bawah (v1 -> v2)
 // supaya HP mengambil file yang baru.
-const CACHE = 'qasir-sablon-v95';
+const CACHE = 'qasir-sablon-v96';
 const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
