@@ -588,7 +588,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.71', API_MIN = 17;
+const VERSI = '5.72', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -813,6 +813,10 @@ function tampilan() {
     if (lama > 0) rec.unshift({ ID: '', BelanjaID: r.ID, Tanggal: r.Tanggal, Jumlah: lama, Via: '', sintetis: true });
     r.Bayar = rec;
   });
+  // Sambungkan otomatis item nota All-In yang belum/salah terhubung ke menu Item, berdasarkan nama (spasi berlebih & huruf besar/kecil diabaikan)
+  { const rapi = (n) => String(n || '').replace(/\s+/g, ' ').trim().toLowerCase(), idB = new Set(L.Barang.map((x) => x.ID)), peta = {};
+    L.Barang.forEach((x) => { const k = rapi(x.Nama); if (k && !peta[k]) peta[k] = x.ID; });
+    L.Pesanan.forEach((o) => o.Items.forEach((it) => { if (it.Kategori === KAT_ALLIN && !(it.BarangID && idB.has(it.BarangID))) { const id = peta[rapi(it.Deskripsi)]; if (id) it.BarangID = id; } })); }
   const h = hitungStok(L);
   L.Pesanan.forEach((o) => {
     o.Modal = 0;
@@ -1296,7 +1300,7 @@ function okTambahan() {
 }
 
 // Item nota
-function cocokBarang(nama) { const nm = String(nama || '').trim().toLowerCase(); return nm ? lihat().Barang.find((x) => String(x.Nama).trim().toLowerCase() === nm) : null; }
+function cocokBarang(nama) { const r = (n) => String(n || '').replace(/\s+/g, ' ').trim().toLowerCase(), nm = r(nama); return nm ? lihat().Barang.find((x) => r(x.Nama) === nm) : null; }
 function pakaiStok(items, lewati) {          // pcs per item stok yang dipakai item Harga All-In
   const m = {}; items.forEach((it, i) => { if (i !== lewati && it.BarangID && it.Kategori === KAT_ALLIN) m[it.BarangID] = (m[it.BarangID] || 0) + pcsItem(it); }); return m;
 }
@@ -1359,6 +1363,7 @@ async function okItem() {
   if (f.Kategori !== KAT_JASA && !cocokBarang(f.Deskripsi)) {
     if (!(await konfirmasi('Item Tidak Ada di Menu Item', `"${f.Deskripsi}" tidak ada di daftar menu Item.\nStok tidak akan dilacak dan modal (HPP) dihitung 0, sehingga laba kotor bisa tidak akurat.\n\nTetap simpan?`))) return;
   }
+  { const bb = cocokBarang(f.Deskripsi); f.BarangID = bb ? bb.ID : ''; }
   f.Subtotal = subItem(f); f.BiayaOperator = Math.round(pcsItem(f) * f.OperatorPerPcs);
   try { localStorage.setItem(K_OP, String(f.OperatorPerPcs)); } catch (e) {}
   if (EI.idx >= 0) { f.ID = E.items[EI.idx].ID; E.items[EI.idx] = f; } else { f.ID = uid(); E.items.push(f); }
