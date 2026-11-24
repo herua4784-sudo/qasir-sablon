@@ -501,7 +501,7 @@
 <dialog id="dlgBayar"><div class="dl">
   <h2>Pembayaran</h2>
   <div class="band"><div class="a"><span>Sisa pembayaran:</span><span id="b_sisa">0</span></div><div class="b">Dari Total: <span id="b_total">0</span></div></div>
-  <div class="fl"><label for="b_jml">Jumlah Bayar</label><input id="b_jml" type="text" inputmode="numeric"></div>
+  <div class="fl"><label for="b_jml">Jumlah Bayar</label><input id="b_jml" type="text" inputmode="numeric"><div style="margin-top:8px"><button type="button" class="bt putih" data-a="uangPas" data-j="b_jml" data-s="b_sisa" style="padding:6px 14px;font-size:14px;min-height:0;height:auto">Uang Pas</button></div></div>
   <div class="fl"><label for="b_tgl">Tanggal</label><input id="b_tgl" type="date"></div>
   <div class="fl"><label for="b_via">Via</label><input id="b_via" list="dl_via" autocomplete="off" placeholder="Tunai / Transfer / QRIS"><datalist id="dl_via"><option value="Tunai"></option><option value="Transfer"></option><option value="QRIS"></option></datalist></div>
   <div class="err" id="b_err"></div>
@@ -513,7 +513,7 @@
 <dialog id="dlgBayarBeli"><div class="dl">
   <h2>Bayar Hutang Pembelian</h2>
   <div class="band"><div class="a"><span>Sisa hutang:</span><span id="bb_sisa">0</span></div><div class="b">Dari Total: <span id="bb_total">0</span></div></div>
-  <div class="fl"><label for="bb_jml">Jumlah Bayar</label><input id="bb_jml" type="text" inputmode="numeric"></div>
+  <div class="fl"><label for="bb_jml">Jumlah Bayar</label><input id="bb_jml" type="text" inputmode="numeric"><div style="margin-top:8px"><button type="button" class="bt putih" data-a="uangPas" data-j="bb_jml" data-s="bb_sisa" style="padding:6px 14px;font-size:14px;min-height:0;height:auto">Uang Pas</button></div></div>
   <div class="fl"><label for="bb_tgl">Tanggal</label><input id="bb_tgl" type="date"></div>
   <div class="fl"><label for="bb_via">Via</label><input id="bb_via" list="dl_via" autocomplete="off" placeholder="Tunai / Transfer / QRIS"></div>
   <div class="err" id="bb_err"></div>
@@ -588,7 +588,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.73', API_MIN = 17;
+const VERSI = '5.74', API_MIN = 17;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -2413,6 +2413,7 @@ const ACT = {
   bayarLunas: () => simpanBayar(true), bayarSimpan: () => simpanBayar(false), bayarHapus: (el) => hapusBayar(el.dataset.id),
   bukaBayarBeli: (el) => bukaBayarBeli(el.dataset.id), bayarBeliLunas: () => simpanBayarBeli(true), bayarBeliSimpan: () => simpanBayarBeli(false), bayarBeliHapus: (el) => hapusBayarBeliUI(el.dataset.id),
   tutupDlg: (el) => el.closest('dialog').close(),
+  uangPas: (el) => { const n = Number(angkaBersih($(el.dataset.s).textContent)) || 0; $(el.dataset.j).value = n ? formatRibuan(String(n)) : ''; },
   bukaKelolaKat: (el) => bukaKelolaKat(el),
   pilihKat: (el) => { $(KAT_TARGET.fieldId).value = daftarKat(KAT_TARGET.list)[+el.dataset.i]; $('dlgKategori').close(); },
   hapusKat: (el) => { const arr = daftarKat(KAT_TARGET.list), nilai = arr[+el.dataset.i]; if (!confirm(`Hapus kategori "${nilai}"?`)) return; arr.splice(+el.dataset.i, 1); simpanKatList(KAT_TARGET.list); renderKatList(); },
