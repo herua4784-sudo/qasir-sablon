@@ -276,6 +276,18 @@
     #printarea.w80 img { width:80mm; }
     @page { margin:0; }
   }
+  .plg { display:grid; grid-template-columns:.8fr 1fr 1fr .9fr 1.1fr; gap:2px 6px; font-size:14px; margin-top:6px; }
+  .plg .h { color:#888; font-size:12px; }
+  .plg .r, .plg .h.r { text-align:right; }
+  .plc { padding:12px 16px; border-bottom:1px solid #e4e4e4; cursor:pointer; }
+  .plc .n { font-size:16px; font-weight:600; }
+  .plc .s { font-size:13px; color:#777; margin-top:2px; }
+  .plc .w { font-size:13px; color:#b91c1c; margin-top:3px; }
+  .plc .u { font-size:13px; color:#b9770e; margin-top:4px; }
+  .plk { padding:10px 16px; background:#f6f6f6; font-weight:700; font-size:13px; letter-spacing:.4px; border-bottom:1px solid #e4e4e4; }
+  .st-ok { color:#1e8449; } .st-tp { color:#b9770e; } .st-rg { color:#b91c1c; font-weight:700; }
+  .chipx { display:inline-flex; align-items:center; gap:6px; background:#f0f0f0; border-radius:14px; padding:4px 6px 4px 12px; margin:0 6px 6px 0; font-size:14px; }
+  .chipx button { border:0; background:none; font-size:16px; cursor:pointer; color:#b91c1c; padding:0 4px; }
 </style>
 </head>
 <body>
@@ -409,6 +421,17 @@
       <div style="margin:12px 16px"><button class="bt putih" data-a="belanjaPilih" style="width:100%">+ Pilih dari Item &amp; Bahan</button></div>
       <div id="bj_list"></div>
       <div style="margin:14px 16px 90px"><button class="bt" data-a="belanjaWA" style="width:100%">Kirim lewat WhatsApp</button><button class="bt putih" data-a="belanjaSalin" style="width:100%;margin-top:10px">Salin sebagai Teks</button></div>
+    </div>
+  </div>
+
+  <!-- ================= LAYAR: PRICE LIST ================= -->
+  <div class="layar" id="l_pricelist">
+    <div class="bar hitam"><button class="bi" data-a="back"><i data-ic="back"></i></button><div class="jdl">Price List Harga Jual</div>
+      <button class="bi" data-a="plBaru" aria-label="Tambah baris"><i data-ic="add"></i></button></div>
+    <div class="isi">
+      <div style="padding:10px 16px 4px"><div class="fl" style="margin:0"><label for="pl_batas">Batas margin aman (%)</label><input id="pl_batas" type="text" inputmode="decimal" autocomplete="off"></div></div>
+      <div class="info-stok" id="pl_ringkas" style="padding:4px 16px 10px"></div>
+      <div id="pl_list"></div>
     </div>
   </div>
 
@@ -578,6 +601,22 @@
   <div class="baris-tombol" style="margin-top:16px"><button class="bt putih" data-a="tutupDlg" style="width:100%">Selesai</button></div>
 </div></dialog>
 
+<dialog id="dlgPL"><div class="dl">
+  <h2 id="pl_judul">Baris Price List</h2>
+  <div class="fl"><label for="pl_kel">Kelompok</label><input id="pl_kel" list="dl_plkel" autocomplete="off"><datalist id="dl_plkel"><option value="Gelas Plastik"></option><option value="Gelas PET"></option><option value="Gelas Injection"></option><option value="Paper Cup"></option><option value="Jasa Sablon Saja"></option></datalist></div>
+  <div class="fl"><label for="pl_nama">Nama baris (seperti di price list)</label><input id="pl_nama" autocomplete="off"></div>
+  <div class="fl" id="pl_blokItem"><label>Item gelas yang terhubung (dari menu Item)</label><div id="pl_chips"></div><input id="pl_itemAdd" list="dl_brg" autocomplete="off" placeholder="Pilih item untuk ditambahkan"></div>
+  <div class="fl" id="pl_blokTutup"><label for="pl_tutup">Item tutup (opsional)</label><input id="pl_tutup" list="dl_brg" autocomplete="off" placeholder="Pilih item tutup dari menu Item"></div>
+  <div class="fl"><label for="pl_h500">Harga order 500</label><input id="pl_h500" type="text" inputmode="numeric"></div>
+  <div class="fl"><label for="pl_h1000">Harga order 1.000</label><input id="pl_h1000" type="text" inputmode="numeric"></div>
+  <div class="fl"><label for="pl_h2000">Harga order 2.000</label><input id="pl_h2000" type="text" inputmode="numeric"></div>
+  <div class="fl" id="pl_blok4"><label for="pl_h4000">Harga order 4.000</label><input id="pl_h4000" type="text" inputmode="numeric"></div>
+  <div class="fl" id="pl_blok8"><label for="pl_h8000">Harga order 8.000</label><input id="pl_h8000" type="text" inputmode="numeric"></div>
+  <div class="info-stok" id="pl_prev" style="white-space:pre-line"></div>
+  <div class="baris-tombol" style="margin-top:12px"><button class="bt" data-a="plSimpan">Simpan</button><button class="bt putih" id="pl_hapus" data-a="plHapus">Hapus</button></div>
+  <div class="baris-tombol" style="margin-top:10px"><button class="bt putih" data-a="tutupDlg" style="width:100%">Batal</button></div>
+</div></dialog>
+
 <dialog id="dlgKonfirm"><div class="dl">
   <h2 id="kf_judul">Konfirmasi</h2>
   <div class="teks-konfirm" id="kf_teks"></div>
@@ -588,7 +627,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.74', API_MIN = 17;
+const VERSI = '5.75', API_MIN = 18;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -700,7 +739,7 @@ function pasangIkon() { document.querySelectorAll('i[data-ic]').forEach((el) => 
 // ---------- data & penyimpanan ----------
 // S.snap  = salinan terakhir data dari Google Sheets
 // S.queue = aksi yang belum terkirim (nota baru, pembayaran, pelanggan, dst.)
-let S = { snap: { Pesanan: [], Item: [], Pembayaran: [], PembayaranBeli: [], Pelanggan: [], Barang: [], Belanja: [], Pengeluaran: [], Penyesuaian: [], Transfer: [], Setelan: [], Bahan: [], MutasiBahan: [] }, queue: [], cfg: { url: '', token: '' }, lastSync: null, versi: 0 };
+let S = { snap: { Pesanan: [], Item: [], Pembayaran: [], PembayaranBeli: [], Pelanggan: [], Barang: [], Belanja: [], Pengeluaran: [], Penyesuaian: [], Transfer: [], Setelan: [], Bahan: [], MutasiBahan: [], HargaJual: [] }, queue: [], cfg: { url: '', token: '' }, lastSync: null, versi: 0 };
 let sedang = false, galatSinkron = '', apiOk = false, _V = null;
 let F = { bulan: '', status: 'semua' };                 // filter daftar nota
 let E = null, EI = null;                                // nota yang sedang diedit, item yang sedang diedit
@@ -750,7 +789,7 @@ function pesan(t, ms) { const m = $('msg'); m.textContent = t; m.style.display =
 // ---------- tampilan = salinan Sheets + aksi yang belum terkirim ----------
 function tampilan() {
   const s = S.snap, salin = (a) => (a || []).map((x) => ({ ...x }));
-  const L = { Pesanan: salin(s.Pesanan), Pelanggan: salin(s.Pelanggan), Barang: salin(s.Barang), Belanja: salin(s.Belanja), Pengeluaran: salin(s.Pengeluaran), Penyesuaian: salin(s.Penyesuaian), Transfer: salin(s.Transfer), Bahan: salin(s.Bahan), MutasiBahan: salin(s.MutasiBahan) };
+  const L = { Pesanan: salin(s.Pesanan), Pelanggan: salin(s.Pelanggan), Barang: salin(s.Barang), Belanja: salin(s.Belanja), Pengeluaran: salin(s.Pengeluaran), Penyesuaian: salin(s.Penyesuaian), Transfer: salin(s.Transfer), Bahan: salin(s.Bahan), MutasiBahan: salin(s.MutasiBahan), HargaJual: salin(s.HargaJual) };
   const items = {}, bayar = {}, bayarBeli = {}, cfg = { ...CFG_DEF };
   (s.Item || []).forEach((it) => { (items[it.PesananID] = items[it.PesananID] || []).push({ ...it }); });
   (s.Pembayaran || []).forEach((p) => { (bayar[p.PesananID] = bayar[p.PesananID] || []).push({ ...p }); });
@@ -827,7 +866,7 @@ function tampilan() {
   // Stok Bahan (M4/Tinta dll): pemantauan jumlah saja, SENGAJA terpisah total dari hitungStok()/labaRugi()/aliranKas() -
   // tidak ada HPP, tidak masuk Laba Rugi, tidak masuk Arus Kas. Jumlah positif = tambah stok, negatif = dipakai/menguap.
   L.MutasiBahan.forEach((r) => { r.Jumlah = Number(r.Jumlah) || 0; const b = L.Bahan.find((x) => x.ID === r.BahanID); r.Nama = b ? b.Nama : '(bahan terhapus)'; r.Satuan = b ? b.Satuan : ''; });
-  return { Pesanan: L.Pesanan, Pelanggan: L.Pelanggan, Barang: L.Barang, Belanja: L.Belanja, Pengeluaran: L.Pengeluaran, Penyesuaian: L.Penyesuaian, Transfer: L.Transfer, Bahan: L.Bahan, MutasiBahan: L.MutasiBahan, cfg, stok: h.st, kartu: h.kartu };
+  return { Pesanan: L.Pesanan, Pelanggan: L.Pelanggan, Barang: L.Barang, Belanja: L.Belanja, Pengeluaran: L.Pengeluaran, Penyesuaian: L.Penyesuaian, Transfer: L.Transfer, Bahan: L.Bahan, MutasiBahan: L.MutasiBahan, HargaJual: L.HargaJual, cfg, stok: h.st, kartu: h.kartu };
 }
 // Stok Bahan (M4/Tinta dll): jumlah saja, tanpa HPP - dihitung terpisah dari hitungStok() supaya TIDAK pernah
 // menyentuh Laba Rugi atau Arus Kas (sesuai permintaan: ini murni pemantauan stok).
@@ -1112,7 +1151,7 @@ async function sinkron(paksa) {
     } while (S.queue.length);
     if (dataTerbaru) {
       const d = dataTerbaru.data;
-      S.snap = { Pesanan: d.Pesanan || [], Item: d.Item || [], Pembayaran: d.Pembayaran || [], PembayaranBeli: d.PembayaranBeli || [], Pelanggan: d.Pelanggan || [], Barang: d.Barang || [], Belanja: d.Belanja || [], Pengeluaran: d.Pengeluaran || [], Penyesuaian: d.Penyesuaian || [], Transfer: d.Transfer || [], Setelan: d.Setelan || [], Bahan: d.Bahan || [], MutasiBahan: d.MutasiBahan || [] };
+      S.snap = { Pesanan: d.Pesanan || [], Item: d.Item || [], Pembayaran: d.Pembayaran || [], PembayaranBeli: d.PembayaranBeli || [], Pelanggan: d.Pelanggan || [], Barang: d.Barang || [], Belanja: d.Belanja || [], Pengeluaran: d.Pengeluaran || [], Penyesuaian: d.Penyesuaian || [], Transfer: d.Transfer || [], Setelan: d.Setelan || [], Bahan: d.Bahan || [], MutasiBahan: d.MutasiBahan || [], HargaJual: d.HargaJual || [] };
       S.versi = dataTerbaru.versi; perluPenuh = false; _V = null;
     } else if (hasil && hasil.versi !== undefined) S.versi = hasil.versi;
     S.lastSync = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -2369,7 +2408,14 @@ const ACT = {
   strip: () => { if (!S.cfg.url || !S.cfg.token) bukaTab('setting'); else sinkron(); },
   cariNota: () => { const r = $('n_carirow'), buka = r.style.display === 'none'; r.style.display = buka ? '' : 'none'; if (buka) $('n_cari').focus(); else { $('n_cari').value = ''; render(); } },
   menuNota: () => popup([{ a: 'menuBuka', d: 'pelanggan', t: 'Pelanggan' }, { a: 'menuBuka', d: 'pembelian', t: 'Pembelian' }, { a: 'menuBuka', d: 'pengeluaran', t: 'Pengeluaran' }, { a: 'menuBuka', d: 'transfer', t: 'Transfer / Setoran' }]),
-  menuItem: () => popup([{ a: 'menuBuka', d: 'penyesuaian', t: 'Penyesuaian Stok' }]),
+  menuItem: () => popup([{ a: 'priceList', t: 'Price List Harga Jual' }, { a: 'menuBuka', d: 'penyesuaian', t: 'Penyesuaian Stok' }]),
+  priceList: () => { tutupPopup(); renderPL(); bukaLayar('l_pricelist'); },
+  plBaru: () => bukaPL(null),
+  plEdit: (el) => bukaPL(el.dataset.id),
+  plSimpan: () => simpanPL(),
+  plHapus: () => hapusPL(),
+  plHapusItem: (el) => { PLE.items = PLE.items.filter((x) => x !== el.dataset.id); renderChipsPL(); previewPL(); },
+  plIsi: () => isiContohPL(),
   menuBahan: () => popup([{ a: 'daftarBelanja', t: 'Daftar Belanja' }, { a: 'menuBuka', d: 'mutasibahan', t: 'Catat Tambah/Pakai Bahan' }]),
   daftarBelanja: () => { tutupPopup(); renderBelanja(); bukaLayar('l_belanja'); },
   belanjaPilih: () => { $('bp_cari').value = ''; renderBelanjaPilih(); $('dlgBelanjaPilih').showModal(); },
@@ -2584,10 +2630,151 @@ async function belanjaBersih() {
 document.addEventListener('focusin', (e) => { const el = e.target; if (el && el.matches && el.matches('input[list]') && el.value && el.dataset.sv === undefined) { el.dataset.sv = el.value; el.value = ''; } });
 document.addEventListener('focusout', (e) => { const el = e.target; if (el && el.dataset && el.dataset.sv !== undefined) { if (el.value === '') el.value = el.dataset.sv; delete el.dataset.sv; } });
 
+
+// ================= PRICE LIST HARGA JUAL =================
+const PL_TIER = [500, 1000, 2000, 4000, 8000];
+const PL_JASA = 'Jasa Sablon Saja';
+const PL_KEL = ['Gelas Plastik', 'Gelas PET', 'Gelas Injection', 'Paper Cup', PL_JASA];
+let PLE = { id: null, items: [] };
+const plIds = (r) => String(r.BarangIDs || '').split(',').map((x) => x.trim()).filter(Boolean);
+const plHarga = (r, t) => Number(r['H' + t]) || 0;
+const plTier = (r) => (r.Kelompok === PL_JASA ? PL_TIER : PL_TIER.slice(0, 3)).filter((t) => plHarga(r, t) > 0);
+const plBatas = () => { const v = parseFloat(String(lihat().cfg.batasMargin == null ? '' : lihat().cfg.batasMargin).replace(',', '.')); return v > 0 ? v : 30; };
+function plModal(r) {
+  const jasa = r.Kelompok === PL_JASA, ids = plIds(r), op = opTerakhir();
+  const hpp = ids.map((id) => stokBarang(id).avg).filter((x) => x > 0);
+  const gelas = jasa || !hpp.length ? 0 : hpp.reduce((a, b) => a + b, 0) / hpp.length;
+  const tutup = r.TutupID ? (stokBarang(r.TutupID).avg || 0) : 0;
+  const ok = jasa || (ids.length > 0 && hpp.length === ids.length);
+  return { gelas, tutup, op, modal: gelas + tutup + op, ok, tanpaItem: !jasa && !ids.length, sebagian: !jasa && ids.length > 0 && hpp.length < ids.length };
+}
+function plTerjual() {
+  const dari = tambahHari(hariIni(), -90), a = [];
+  lihat().Pesanan.forEach((o) => { if (o.Tanggal < dari) return; o.Items.forEach((it) => { const p = pcsItem(it); if (p <= 0) return;
+    if (it.Kategori === KAT_ALLIN && it.BarangID) a.push({ id: it.BarangID, p, v: subItem(it) });
+    else if (it.Kategori === KAT_JASA) a.push({ id: '*jasa', p, v: subItem(it) }); }); });
+  return a;
+}
+function plEval(r, ent, batas) {
+  const m = plModal(r), T = plTier(r), ids = new Set(r.Kelompok === PL_JASA ? ['*jasa'] : plIds(r));
+  const agg = {}; T.forEach((t) => { agg[t] = { p: 0, v: 0 }; });
+  ent.forEach((e) => { if (!ids.has(e.id) || !T.length) return; let t = T[0]; T.forEach((x) => { if (e.p >= x) t = x; }); agg[t].p += e.p; agg[t].v += e.v; });
+  const tiers = T.map((t) => {
+    const h = plHarga(r, t), margin = h - m.modal, pct = h > 0 ? margin / h * 100 : 0, tj = agg[t].p ? agg[t].v / agg[t].p : 0;
+    const st = !m.ok ? '' : margin < 0 ? 'rg' : pct < batas ? 'tp' : 'ok';
+    const usulan = m.ok && st !== 'ok' ? Math.ceil(m.modal / (1 - batas / 100) / 10) * 10 : 0;
+    return { t, h, margin, pct, tj, st, usulan };
+  });
+  return { m, tiers };
+}
+const plNamaBrg = (id) => { const b = lihat().Barang.find((x) => x.ID === id); return b ? b.Nama : '(item terhapus)'; };
+function renderPL() {
+  const v = lihat(), batas = plBatas(), ent = plTerjual(), rows = v.HargaJual.slice().sort((a, b) => (Number(a.Urut) || 0) - (Number(b.Urut) || 0));
+  if (document.activeElement !== $('pl_batas')) $('pl_batas').value = String(batas).replace('.', ',');
+  if (!rows.length) { $('pl_ringkas').textContent = ''; $('pl_list').innerHTML = '<div class="kosong">Price List masih kosong.<br><br><button class="bt" data-a="plIsi" style="padding:10px 18px">Isi dari Price List saya</button><br><br>atau ketuk + di kanan atas untuk menambah satu per satu.</div>'; pasangIkon(); return; }
+  let butuh = 0, belum = 0; const html = [];
+  PL_KEL.concat(rows.map((r) => r.Kelompok).filter((k) => !PL_KEL.includes(k))).filter((k, i, a) => a.indexOf(k) === i).forEach((kel) => {
+    const rs = rows.filter((r) => r.Kelompok === kel); if (!rs.length) return;
+    html.push(`<div class="plk">${esc(kel.toUpperCase())}</div>`);
+    rs.forEach((r) => {
+      const e = plEval(r, ent, batas), m = e.m, ids = plIds(r);
+      const perlu = e.tiers.filter((x) => x.st === 'tp' || x.st === 'rg'); if (perlu.length) butuh++; if (!m.ok) belum++;
+      const sub = r.Kelompok === PL_JASA ? 'Bawa gelas sendiri (hanya jasa sablon)' : (ids.map(plNamaBrg).join(', ') || '') + (r.TutupID ? ' + tutup: ' + plNamaBrg(r.TutupID) : '');
+      let b = `<div class="plc" data-a="plEdit" data-id="${r.ID}"><div class="n">${esc(r.Nama)}</div>${sub ? `<div class="s">${esc(sub)}</div>` : ''}`;
+      if (m.tanpaItem) b += '<div class="w">⚠ Belum tersambung ke item di menu Item, jadi modal tidak bisa dihitung.</div>';
+      else if (m.sebagian || (!m.ok && ids.length)) b += '<div class="w">⚠ Ada item yang belum punya HPP (belum ada pembelian / stok awal ber-HPP).</div>';
+      if (e.tiers.length) {
+        b += '<div class="plg"><div class="h">Order</div><div class="h r">Harga</div><div class="h r">Margin</div><div class="h r">%</div><div class="h r">Terjual rata²</div>';
+        e.tiers.forEach((x) => {
+          const rendah = x.tj && x.tj < x.h * 0.98;
+          b += `<div>${nf(x.t)}</div><div class="r">${n0(x.h)}</div><div class="r ${x.st ? 'st-' + x.st : ''}">${m.ok ? n0(Math.round(x.margin)) : '-'}</div><div class="r ${x.st ? 'st-' + x.st : ''}">${m.ok ? nf(Math.round(x.pct * 10) / 10) + '%' : '-'}</div><div class="r" style="${rendah ? 'color:#b9770e' : ''}">${x.tj ? n0(Math.round(x.tj)) : '-'}</div>`;
+        });
+        b += '</div>';
+        if (m.ok) b += `<div class="s">Modal/pcs ${n0(Math.round(m.modal))}${r.Kelompok === PL_JASA ? '' : ` = gelas ${n0(Math.round(m.gelas))}${m.tutup ? ' + tutup ' + n0(Math.round(m.tutup)) : ''}`} + operator ${n0(m.op)}</div>`;
+        if (perlu.length) b += `<div class="u">Perlu koreksi: ${perlu.map((x) => `order ${nf(x.t)} → usulan ${n0(x.usulan)}`).join(' · ')} (margin ${nf(batas)}%)</div>`;
+      } else b += '<div class="s">Belum ada harga diisi.</div>';
+      html.push(b + '</div>');
+    });
+  });
+  $('pl_ringkas').textContent = `${rows.length} baris · ${butuh} perlu dikoreksi${belum ? ' · ' + belum + ' belum bisa dihitung (HPP/item)' : ''}. Margin = (harga − modal) ÷ harga.`;
+  $('pl_list').innerHTML = html.join(''); pasangIkon();
+}
+function renderChipsPL() { $('pl_chips').innerHTML = PLE.items.map((id) => `<span class="chipx">${esc(plNamaBrg(id))}<button data-a="plHapusItem" data-id="${id}" aria-label="Hapus">✕</button></span>`).join(''); }
+const plBacaForm = () => ({ Kelompok: $('pl_kel').value.trim() || 'Gelas Plastik', Nama: $('pl_nama').value.trim(), BarangIDs: PLE.items.join(','), TutupID: (() => { const b = cocokBarang($('pl_tutup').value); return b ? b.ID : ''; })(),
+  H500: Number(angkaBersih($('pl_h500').value)) || '', H1000: Number(angkaBersih($('pl_h1000').value)) || '', H2000: Number(angkaBersih($('pl_h2000').value)) || '', H4000: Number(angkaBersih($('pl_h4000').value)) || '', H8000: Number(angkaBersih($('pl_h8000').value)) || '' });
+function aturBlokPL() {
+  const jasa = $('pl_kel').value.trim() === PL_JASA;
+  ['pl_blokItem', 'pl_blokTutup'].forEach((id) => { $(id).style.display = jasa ? 'none' : ''; });
+  ['pl_blok4', 'pl_blok8'].forEach((id) => { $(id).style.display = jasa ? '' : 'none'; });
+}
+function previewPL() {
+  const f = plBacaForm(), e = plEval(f, [], plBatas());
+  if (f.Kelompok !== PL_JASA && !f.BarangIDs) { $('pl_prev').textContent = 'Pilih item gelas agar modal dan margin bisa dihitung.'; return; }
+  if (!e.m.ok) { $('pl_prev').textContent = 'Ada item yang belum punya HPP, margin belum bisa dihitung.'; return; }
+  $('pl_prev').textContent = `Modal/pcs: ${n0(Math.round(e.m.modal))}` + e.tiers.map((x) => `\nOrder ${nf(x.t)}: margin ${n0(Math.round(x.margin))} (${nf(Math.round(x.pct * 10) / 10)}%)${x.st === 'tp' ? ' - tipis' : x.st === 'rg' ? ' - RUGI' : ''}`).join('');
+}
+function bukaPL(id) {
+  const r = id ? lihat().HargaJual.find((x) => x.ID === id) : null;
+  PLE = { id: r ? r.ID : null, items: r ? plIds(r) : [] };
+  $('pl_judul').textContent = r ? 'Ubah Baris' : 'Tambah Baris';
+  $('pl_kel').value = r ? r.Kelompok : 'Gelas Plastik'; $('pl_nama').value = r ? r.Nama : ''; $('pl_itemAdd').value = '';
+  $('pl_tutup').value = r && r.TutupID ? plNamaBrg(r.TutupID) : '';
+  PL_TIER.forEach((t) => { const v = r ? plHarga(r, t) : 0; $('pl_h' + t).value = v ? formatRibuan(String(v)) : ''; });
+  $('pl_hapus').style.display = r ? '' : 'none';
+  aturBlokPL(); renderChipsPL(); previewPL(); $('dlgPL').showModal();
+}
+function simpanPL() {
+  const f = plBacaForm();
+  if (!f.Nama) { pesan('Isi nama baris.'); return; }
+  if (!PL_TIER.some((t) => Number(f['H' + t]) > 0)) { pesan('Isi minimal satu harga.'); return; }
+  if (f.Kelompok === PL_JASA) { f.BarangIDs = ''; f.TutupID = ''; }
+  if (PLE.id) antre({ op: 'ubah', sheet: 'HargaJual', id: PLE.id, row: f });
+  else { const urut = Math.max(0, ...lihat().HargaJual.map((r) => Number(r.Urut) || 0)) + 1; antre({ op: 'add', sheet: 'HargaJual', row: { ID: uid(), ...f, Urut: urut } }); }
+  $('dlgPL').close(); renderPL();
+}
+async function hapusPL() {
+  const r = lihat().HargaJual.find((x) => x.ID === PLE.id); if (!r) return;
+  if (!(await konfirmasi('Hapus Baris', `Hapus "${r.Nama}" dari Price List?`))) return;
+  antre({ op: 'hapus', sheet: 'HargaJual', id: r.ID }); $('dlgPL').close(); renderPL();
+}
+const PL_SEED = [
+  ['Gelas Plastik', 'TIPTOP 12oz oval (7gr)', [['tiptop', '12oz', 'oval']], [770, 740, 690]],
+  ['Gelas Plastik', 'STARINDO 14oz, 16oz oval (8gr)', [['starindo', '14oz', 'oval'], ['starindo', '16oz', 'oval']], [800, 750, 700]],
+  ['Gelas Plastik', 'STARINDO 18oz, 22oz oval (9gr)', [['starindo', '18oz', 'oval'], ['starindo', '22oz', 'oval']], [825, 780, 745]],
+  ['Gelas Plastik', 'STARINDO, RJM 14oz, 16oz datar (5,2gr)', [['starindo', '14oz', 'datar'], ['starindo', '16oz', 'datar'], ['rjm', '14oz', 'datar'], ['rjm', '16oz', 'datar']], [650, 600, 580]],
+  ['Gelas Plastik', 'STARINDO 18oz datar (8gr)', [['starindo', '18oz', 'datar']], [770, 710, 690]],
+  ['Gelas Plastik', 'OKEY, RJM 22oz datar (8gr)', [['okey', '22oz', 'datar'], ['rjm', '22oz', 'datar']], [770, 710, 690]],
+  ['Gelas Plastik', 'STARINDO 22oz datar (8,2gr)', [['starindo', '22oz', 'datar']], [800, 760, 710]],
+  ['Gelas PET', 'Gelas PET 12oz datar 11gr', [['pet', '12oz', 'datar']], [1150, 1100, 0]],
+  ['Gelas PET', 'Gelas PET 14oz oval 11gr', [['pet', '14oz', 'oval']], [1170, 1120, 0]],
+  ['Gelas PET', 'Gelas PET 16oz datar 12,5gr', [['pet', '16oz', 'datar']], [0, 0, 0]],
+  ['Gelas Injection', 'Injection 12oz oval 380ml', [['injection', '12oz', 'oval']], [0, 0, 0]],
+  ['Gelas Injection', 'Injection 14oz datar 400ml', [['injection', '14oz', 'datar']], [1550, 1550, 0]],
+  ['Gelas Injection', 'Injection 16oz datar 500ml', [['injection', '16oz', 'datar']], [1620, 1620, 0]],
+  ['Paper Cup', 'Paper Cup 9oz', [['paper', '9oz']], [950, 900, 0]],
+  [PL_JASA, 'Jasa sablon saja (bawa gelas sendiri)', [], [350, 300, 250, 200, 160]]
+];
+function isiContohPL() {
+  const rapi = (n) => String(n || '').toLowerCase().replace(/\s+/g, ''), brg = lihat().Barang; let urut = 0, tersambung = 0, total = 0;
+  PL_SEED.forEach(([kel, nama, kw, h]) => {
+    const ids = []; kw.forEach((k) => { total++; const c = brg.filter((b) => k.every((w) => rapi(b.Nama).includes(w))); if (c.length === 1 && !ids.includes(c[0].ID)) { ids.push(c[0].ID); tersambung++; } });
+    const row = { ID: uid(), Kelompok: kel, Nama: nama, BarangIDs: ids.join(','), TutupID: '', Urut: ++urut };
+    PL_TIER.forEach((t, i) => { row['H' + t] = h[i] || ''; });
+    antre({ op: 'add', sheet: 'HargaJual', row });
+  });
+  renderPL(); pesan(`Price List terisi. ${tersambung} dari ${total} item tersambung otomatis; sisanya silakan dipilih manual.`, 6000);
+}
+
 // ---------- input ----------
 const tunda = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 $('bp_cari').addEventListener('input', renderBelanjaPilih);
 $('bj_list').addEventListener('change', (e) => { const c = e.target.classList, q = c.contains('bjq'), u = c.contains('bju'); if (!q && !u) return; const a = bacaBelanja(), x = a.find((r) => r.id === e.target.dataset.id); if (x) { if (q) x.q = e.target.value.trim(); else x.u = e.target.value; simpanBelanja(a); } });
+$('pl_kel').addEventListener('input', () => { aturBlokPL(); previewPL(); });
+$('pl_kel').addEventListener('change', () => { aturBlokPL(); previewPL(); });
+$('pl_tutup').addEventListener('change', previewPL);
+$('pl_itemAdd').addEventListener('change', () => { const v = $('pl_itemAdd').value; if (!v.trim()) return; const b = cocokBarang(v); if (!b) { pesan('Item tidak ada di menu Item.'); return; } if (!PLE.items.includes(b.ID)) PLE.items.push(b.ID); $('pl_itemAdd').value = ''; renderChipsPL(); previewPL(); });
+PL_TIER.forEach((t) => { pasangRibuan($('pl_h' + t)); $('pl_h' + t).addEventListener('input', previewPL); });
+$('pl_batas').addEventListener('change', () => { const v = parseFloat($('pl_batas').value.replace(',', '.')); if (v > 0 && v < 100) { antre({ op: 'setel', key: 'batasMargin', value: String(v) }); } renderPL(); });
 $('n_cari').addEventListener('input', tunda(() => { notaTampil = 0; renderNota(lihat()); }, 150));
 $('dk_baru').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tambahKatBaru(); } });
 ['u_saldo', 'it_harga', 'it_jml', 'it_op', 'b_jml', 'bb_jml', 't_ongkir', 't_lainRp', 'kal_operator', 'kal_qty', 'kal_hargaJual'].forEach((id) => pasangRibuan($(id)));
