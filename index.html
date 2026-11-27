@@ -627,7 +627,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.79', API_MIN = 19;
+const VERSI = '5.80', API_MIN = 19;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -796,7 +796,11 @@ function tampilan() {
   (s.PembayaranBeli || []).forEach((p) => { (bayarBeli[p.BelanjaID] = bayarBeli[p.BelanjaID] || []).push({ ...p }); });
   (s.Setelan || []).forEach((r) => { cfg[r.Kunci] = String(r.Nilai == null ? '' : r.Nilai); });
   if (cfg.katPengeluaran) { try { const a = JSON.parse(cfg.katPengeluaran); if (Array.isArray(a) && a.length) { KAT_KELUAR.length = 0; KAT_KELUAR.push(...a); } } catch (e) {} }
-  ['Gaji Operator', 'Gaji Owner', 'Antar Gelas', 'Setor Laba Bersih'].forEach((k) => { if (!KAT_KELUAR.some((x) => x.toLowerCase() === k.toLowerCase())) KAT_KELUAR.push(k); });
+  { // kategori utama diletakkan paling atas pilihan (urutan tetap), sisanya mengikuti di bawah
+    const atas = ['Gaji Operator', 'Gaji Owner', 'Listrik', 'Sewa Gudang', 'Antar Gelas', 'Setor Laba Bersih'], low = (x) => String(x).toLowerCase();
+    const urut = atas.map((k) => KAT_KELUAR.find((x) => low(x) === low(k)) || k), sisa = KAT_KELUAR.filter((x) => !atas.some((k) => low(k) === low(x)));
+    KAT_KELUAR.length = 0; KAT_KELUAR.push(...urut, ...sisa);
+  }
   if (cfg.katPembelian) { try { const a = JSON.parse(cfg.katPembelian); if (Array.isArray(a) && a.length) { KAT_BELI.length = 0; KAT_BELI.push(...a); } } catch (e) {} }
   // Indeks ID dibuat hanya bila ada antrean (pencarian O(1), bukan menelusuri seluruh daftar tiap aksi).
   const mapDari = new Map();
