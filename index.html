@@ -627,7 +627,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.78', API_MIN = 18;
+const VERSI = '5.79', API_MIN = 19;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -1727,9 +1727,9 @@ const CRUD = {
   pengeluaran: { sheet: 'Pengeluaran', judul: 'Pengeluaran', tambah: 'Tambah Pengeluaran', ubah: 'Ubah Pengeluaran', tgl: true,
     f: [{ k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' }, { k: 'Keterangan', l: 'Keterangan', w: 1 },
       { k: 'Kategori', l: 'Kategori (Gaji, Sewa Gudang, Listrik, dll)', t: 'dl', o: KAT_KELUAR, kat: 'pengeluaran' },
-      { k: 'Jumlah', l: 'Jumlah (Rp)', t: 'number', w: 1, pos: 1 }, { k: 'Catatan', l: 'Catatan (Opsional)' }],
+      { k: 'Jumlah', l: 'Jumlah (Rp)', t: 'number', w: 1, pos: 1 }, { k: 'Periode', l: 'Untuk bulan (isi bila biayanya milik bulan lain; kosongkan = bulan dari Tanggal)', t: 'month' }, { k: 'Catatan', l: 'Catatan (Opsional)' }],
     cari: (r) => [r.Keterangan, r.Kategori, r.Catatan].join(' '), urut: (a, b) => String(b.Tanggal).localeCompare(String(a.Tanggal)),
-    baris: (r) => `<div class="cb"><div class="c1"><span>${esc(r.Keterangan)}</span><span class="r">${n0(r.Jumlah)}</span></div><div class="c2">${tglDMY(r.Tanggal)} · ${esc(r.Kategori || '')}${r.Catatan ? ' · ' + esc(r.Catatan) : ''}</div></div>` },
+    baris: (r) => `<div class="cb"><div class="c1"><span>${esc(r.Keterangan)}</span><span class="r">${n0(r.Jumlah)}</span></div><div class="c2">${tglDMY(r.Tanggal)} · ${esc(r.Kategori || '')}${r.Periode && String(r.Periode) !== String(r.Tanggal).slice(0, 7) ? ' · untuk ' + bulanLabel(String(r.Periode)) : ''}${r.Catatan ? ' · ' + esc(r.Catatan) : ''}</div></div>` },
   penyesuaian: { sheet: 'Penyesuaian', judul: 'Penyesuaian Stok', tambah: 'Tambah Penyesuaian', ubah: 'Ubah Penyesuaian', tgl: true,
     f: [{ k: 'Nama', l: 'Nama Item', t: 'dl', o: 'brg', w: 1 }, { k: 'StokInfo', t: 'info' },
       { k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' },
@@ -2019,12 +2019,15 @@ function dataLap(dari, sampai) {
   v.Pesanan.forEach((o) => o.Bayar.forEach((p) => { if (dlm(p.Tanggal)) byr.push({ ...p, nota: o }); }));
   const idB = new Set(v.Barang.map((x) => x.ID)), adaBrg = (r) => !!(r.BarangID && idB.has(r.BarangID));
   const bl = v.Belanja.filter((r) => dlm(r.Tanggal));
-  return { ps: v.Pesanan.filter((o) => dlm(o.Tanggal)), byr, bl, blStok: bl.filter(adaBrg), blBiasa: bl.filter((r) => !adaBrg(r)), pg: v.Pengeluaran.filter((r) => dlm(r.Tanggal) && !nonBiaya(r)), nb: v.Pengeluaran.filter((r) => dlm(r.Tanggal) && nonBiaya(r)), py: v.Penyesuaian.filter((r) => dlm(r.Tanggal)) };
+  return { ps: v.Pesanan.filter((o) => dlm(o.Tanggal)), byr, bl, blStok: bl.filter(adaBrg), blBiasa: bl.filter((r) => !adaBrg(r)), pg: v.Pengeluaran.filter((r) => dlm(tglBiaya(r)) && !nonBiaya(r)), nb: v.Pengeluaran.filter((r) => dlm(r.Tanggal) && nonBiaya(r)), py: v.Penyesuaian.filter((r) => dlm(r.Tanggal)) };
 }
 // Pengeluaran berkategori ini TETAP uang keluar di Arus Kas, tapi BUKAN biaya Laba Rugi:
 //  - Gaji Operator: biayanya sudah terhitung per pcs di nota (Biaya Operator Mesin), ini hanya pembayarannya.
 //  - Setor Laba Bersih: pembagian laba kepada owner, bukan biaya usaha.
 const KAT_NON_BIAYA = ['gaji operator', 'setor laba bersih'];
+// Tanggal biaya untuk Laba Rugi: bila "Untuk bulan" diisi dan beda dari bulan Tanggal, dihitung pada hari terakhir bulan itu (Arus Kas tetap memakai Tanggal bayar).
+const blnBiaya = (r) => (/^\d{4}-\d{2}$/.test(String(r.Periode || '')) ? String(r.Periode) : String(r.Tanggal).slice(0, 7));
+const tglBiaya = (r) => (blnBiaya(r) === String(r.Tanggal).slice(0, 7) ? String(r.Tanggal).slice(0, 10) : akhirBulan(blnBiaya(r) + '-01'));
 const nonBiaya = (r) => KAT_NON_BIAYA.includes(String(r.Kategori || '').trim().toLowerCase());
 function labaRugi(d) {
   const pj = jml(d.ps, (o) => o.Total), modal = jml(d.ps, (o) => o.Modal), op = jml(d.ps, (o) => o.BiayaOperator);
@@ -2116,7 +2119,7 @@ function lapSummary(v) {
   const idB = new Set(v.Barang.map((x) => x.ID));
   v.Pesanan.forEach((o) => { const a = ag[String(o.Tanggal).slice(0, 7)]; if (a) { a.pj += o.Total; a.modal += o.Modal; a.op += o.BiayaOperator; a.piu += Math.max(o.Total - o.Dibayar, 0); a.nota++; a.qty += pcsGelas(o.Items); } });
   v.Belanja.forEach((r) => { const a = ag[String(r.Tanggal).slice(0, 7)]; if (a) { a.beli += r.Total; a.hutang += Math.max(r.Total - r.Dibayar, 0); if (!(r.BarangID && idB.has(r.BarangID))) a.bahan += r.Total; } });
-  v.Pengeluaran.forEach((r) => { const a = ag[String(r.Tanggal).slice(0, 7)]; if (a && !nonBiaya(r)) a.peng += Number(r.Jumlah) || 0; });
+  v.Pengeluaran.forEach((r) => { const a = ag[blnBiaya(r)]; if (a && !nonBiaya(r)) a.peng += Number(r.Jumlah) || 0; });
   v.Penyesuaian.forEach((r) => { const a = ag[String(r.Tanggal).slice(0, 7)]; if (a) a.rugi += r.Rugi || 0; });
   const lbl = ms.map((m) => BLN3[+m.slice(5) - 1]), col = (f) => ms.map((m) => f(ag[m]));
   const laba = col((a) => a.pj - a.modal), biaya = col((a) => a.op + a.bahan + a.peng + a.rugi), bersih = laba.map((x, i) => x - biaya[i]);
