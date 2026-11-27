@@ -627,7 +627,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.77', API_MIN = 18;
+const VERSI = '5.78', API_MIN = 18;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -796,6 +796,7 @@ function tampilan() {
   (s.PembayaranBeli || []).forEach((p) => { (bayarBeli[p.BelanjaID] = bayarBeli[p.BelanjaID] || []).push({ ...p }); });
   (s.Setelan || []).forEach((r) => { cfg[r.Kunci] = String(r.Nilai == null ? '' : r.Nilai); });
   if (cfg.katPengeluaran) { try { const a = JSON.parse(cfg.katPengeluaran); if (Array.isArray(a) && a.length) { KAT_KELUAR.length = 0; KAT_KELUAR.push(...a); } } catch (e) {} }
+  ['Gaji Operator', 'Gaji Owner', 'Antar Gelas', 'Setor Laba Bersih'].forEach((k) => { if (!KAT_KELUAR.some((x) => x.toLowerCase() === k.toLowerCase())) KAT_KELUAR.push(k); });
   if (cfg.katPembelian) { try { const a = JSON.parse(cfg.katPembelian); if (Array.isArray(a) && a.length) { KAT_BELI.length = 0; KAT_BELI.push(...a); } } catch (e) {} }
   // Indeks ID dibuat hanya bila ada antrean (pencarian O(1), bukan menelusuri seluruh daftar tiap aksi).
   const mapDari = new Map();
@@ -2018,8 +2019,13 @@ function dataLap(dari, sampai) {
   v.Pesanan.forEach((o) => o.Bayar.forEach((p) => { if (dlm(p.Tanggal)) byr.push({ ...p, nota: o }); }));
   const idB = new Set(v.Barang.map((x) => x.ID)), adaBrg = (r) => !!(r.BarangID && idB.has(r.BarangID));
   const bl = v.Belanja.filter((r) => dlm(r.Tanggal));
-  return { ps: v.Pesanan.filter((o) => dlm(o.Tanggal)), byr, bl, blStok: bl.filter(adaBrg), blBiasa: bl.filter((r) => !adaBrg(r)), pg: v.Pengeluaran.filter((r) => dlm(r.Tanggal)), py: v.Penyesuaian.filter((r) => dlm(r.Tanggal)) };
+  return { ps: v.Pesanan.filter((o) => dlm(o.Tanggal)), byr, bl, blStok: bl.filter(adaBrg), blBiasa: bl.filter((r) => !adaBrg(r)), pg: v.Pengeluaran.filter((r) => dlm(r.Tanggal) && !nonBiaya(r)), nb: v.Pengeluaran.filter((r) => dlm(r.Tanggal) && nonBiaya(r)), py: v.Penyesuaian.filter((r) => dlm(r.Tanggal)) };
 }
+// Pengeluaran berkategori ini TETAP uang keluar di Arus Kas, tapi BUKAN biaya Laba Rugi:
+//  - Gaji Operator: biayanya sudah terhitung per pcs di nota (Biaya Operator Mesin), ini hanya pembayarannya.
+//  - Setor Laba Bersih: pembagian laba kepada owner, bukan biaya usaha.
+const KAT_NON_BIAYA = ['gaji operator', 'setor laba bersih'];
+const nonBiaya = (r) => KAT_NON_BIAYA.includes(String(r.Kategori || '').trim().toLowerCase());
 function labaRugi(d) {
   const pj = jml(d.ps, (o) => o.Total), modal = jml(d.ps, (o) => o.Modal), op = jml(d.ps, (o) => o.BiayaOperator);
   const bahan = jml(d.blBiasa, biayaBeli), peng = jml(d.pg, (r) => r.Jumlah), rugi = jml(d.py, (r) => r.Rugi || 0);
@@ -2110,7 +2116,7 @@ function lapSummary(v) {
   const idB = new Set(v.Barang.map((x) => x.ID));
   v.Pesanan.forEach((o) => { const a = ag[String(o.Tanggal).slice(0, 7)]; if (a) { a.pj += o.Total; a.modal += o.Modal; a.op += o.BiayaOperator; a.piu += Math.max(o.Total - o.Dibayar, 0); a.nota++; a.qty += pcsGelas(o.Items); } });
   v.Belanja.forEach((r) => { const a = ag[String(r.Tanggal).slice(0, 7)]; if (a) { a.beli += r.Total; a.hutang += Math.max(r.Total - r.Dibayar, 0); if (!(r.BarangID && idB.has(r.BarangID))) a.bahan += r.Total; } });
-  v.Pengeluaran.forEach((r) => { const a = ag[String(r.Tanggal).slice(0, 7)]; if (a) a.peng += Number(r.Jumlah) || 0; });
+  v.Pengeluaran.forEach((r) => { const a = ag[String(r.Tanggal).slice(0, 7)]; if (a && !nonBiaya(r)) a.peng += Number(r.Jumlah) || 0; });
   v.Penyesuaian.forEach((r) => { const a = ag[String(r.Tanggal).slice(0, 7)]; if (a) a.rugi += r.Rugi || 0; });
   const lbl = ms.map((m) => BLN3[+m.slice(5) - 1]), col = (f) => ms.map((m) => f(ag[m]));
   const laba = col((a) => a.pj - a.modal), biaya = col((a) => a.op + a.bahan + a.peng + a.rugi), bersih = laba.map((x, i) => x - biaya[i]);
@@ -2239,6 +2245,7 @@ function lapLabaBersih(v) {
   if (koreksi) out.push(B('* Koreksi Stok', n0(koreksi), { k: 'in', sg: koreksi > 0 ? '+' : '−' }));
   out.push(B('Harga Pokok Penjualan', n0(L.modal), { k: 'tb' }), '<div style="height:14px"></div>', B('LABA KOTOR', warnaAngka(L.kotor), { k: 'gd' }), '<div style="height:10px"></div>');
   out.push(B('Biaya Operator Mesin', n0(L.op)), B('Bahan Habis Pakai (tinta, film, dll)', n0(L.bahan)), ...perKat.map((g) => B(esc(g.k), n0(g.a))), ...(L.rugi ? [B('Kerugian Stok (Rusak/Hilang)', n0(L.rugi))] : []), B('Total Biaya', n0(L.op + L.bahan + L.peng + L.rugi), { k: 'tb' }), '<div style="height:14px"></div>', B('LABA BERSIH', warnaAngka(L.bersih), { k: 'gd' }));
+  if (d.nb.length) { const g = grup(d.nb, (r) => String(r.Kategori).trim(), (r) => [Number(r.Jumlah) || 0, 0]).sort((x, y) => y.a - x.a); out.push(`<div class="kosong">Uang keluar yang tidak dihitung sebagai biaya (tetap tercatat di Arus Kas): ${g.map((x) => esc(x.k) + ' ' + n0(x.a)).join(' · ')}</div>`); }
   if (L.tanpa) {
     const idB = new Set(v.Barang.map((x) => x.ID));
     out.push(`<div class="kosong">${L.tanpa} item All-In modalnya terhitung 0:<br>` + L.daftarTanpa.map(({ nota, it }) => {
