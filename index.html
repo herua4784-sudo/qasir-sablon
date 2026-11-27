@@ -627,7 +627,7 @@
 
 <script>
 'use strict';
-const VERSI = '5.76', API_MIN = 18;
+const VERSI = '5.77', API_MIN = 18;
 const K_ANTRE = 'qsg_antre_v2', K_SNAP = 'qsg_snap_v2';   // antrean (kecil, disimpan seketika) dan salinan data (besar, disimpan setelah sinkron)
 const K_OP = 'qsg_op';   // biaya operator per pcs yang terakhir dipakai (isian bawaan item berikutnya)
 const K_DATA = 'qsg_data_v1', K_CFG = 'qsg_cfg_v1', K_NOTA_LAMA = 'qsg_nota_v1', K_VIA = 'qsg_via';
@@ -947,9 +947,10 @@ function hitungStok(L, sampai) {           // sampai (YYYY-MM-DD, opsional): pos
   });
   return { st, kartu, cogs, rugi };
 }
+const blnLalu = () => tambahBulan(hariIni().slice(0, 7) + '-01', -1).slice(0, 7);   // bulan sebelumnya (YYYY-MM)
 let _tjV = null, _tjM = {};
-function terjualBulanIni(id) {          // pcs terjual (item Harga All-In) dari tanggal 1 sampai akhir bulan berjalan
-  const v = lihat(); if (_tjV !== v) { _tjV = v; _tjM = {}; const bln = hariIni().slice(0, 7);
+function terjualBulanIni(id) {          // pcs terjual (item Harga All-In) sepanjang bulan sebelumnya (tgl 1 sampai akhir bulan)
+  const v = lihat(); if (_tjV !== v) { _tjV = v; _tjM = {}; const bln = blnLalu();
     v.Pesanan.forEach((o) => { if (String(o.Tanggal).slice(0, 7) !== bln) return; o.Items.forEach((it) => { if (it.Kategori === KAT_ALLIN && it.BarangID) _tjM[it.BarangID] = (_tjM[it.BarangID] || 0) + pcsItem(it); }); }); }
   return _tjM[id] || 0;
 }
@@ -1692,7 +1693,7 @@ const CRUD = {
       { k: 'StokAwal', l: 'Stok Awal (pcs)', t: 'number', h: 'Stok yang ada sekarang, sebelum pembelian dicatat di aplikasi ini. Stok saat ini = stok awal + pembelian − penjualan.' },
       { k: 'HPPAwal', l: 'HPP Awal per pcs (Rp)', t: 'number', h: 'Modal per pcs untuk stok awal. Pembelian berikutnya dihitung rata-rata dengan angka ini. Kalau dikosongkan, stok awal dihargai sama dengan pembelian pertama.' }],
     cari: (r) => r.Nama, urut: (a, b) => String(a.Nama).localeCompare(String(b.Nama), 'id'),
-    baris: (r) => { const s = stokBarang(r.ID), menipis = _menipisBarangIds.has(r.ID); return `<div class="cb"><div class="c1"><span>${menipis ? '⚠ ' : ''}${esc(r.Nama)}</span><span class="r ${s.stok < 0 || menipis ? 'neg' : ''}">${nf(s.stok)} ${esc(r.Satuan || 'pcs')}</span></div><div class="c2">HPP ${s.avg ? n0(Math.round(s.avg)) : '-'}${Number(r.IsiPerDus) ? ' · isi ' + nf(r.IsiPerDus) + ' pcs/dus' : ''}</div><div class="c2" style="font-style:italic">Terjual ${bulanLabel(hariIni().slice(0, 7))}: ${nf(terjualBulanIni(r.ID))} pcs</div></div>`; },
+    baris: (r) => { const s = stokBarang(r.ID), menipis = _menipisBarangIds.has(r.ID); return `<div class="cb"><div class="c1"><span>${menipis ? '⚠ ' : ''}${esc(r.Nama)}</span><span class="r ${s.stok < 0 || menipis ? 'neg' : ''}">${nf(s.stok)} ${esc(r.Satuan || 'pcs')}</span></div><div class="c2">HPP ${s.avg ? n0(Math.round(s.avg)) : '-'}${Number(r.IsiPerDus) ? ' · isi ' + nf(r.IsiPerDus) + ' pcs/dus' : ''}</div><div class="c2" style="font-style:italic">Terjual ${bulanLabel(blnLalu())}: ${nf(terjualBulanIni(r.ID))} pcs</div></div>`; },
     info: (r) => infoKartuStok(r) },
   pembelian: { sheet: 'Belanja', judul: 'Pembelian', tambah: 'Tambah Pembelian', ubah: 'Ubah Pembelian', tgl: true,
     f: [{ k: 'Tanggal', l: 'Tanggal', t: 'date', w: 1, def: 'hari' },
